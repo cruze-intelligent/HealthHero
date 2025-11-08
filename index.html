@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Educational game teaching children about hygiene, nutrition, and disease prevention">
+    <meta name="theme-color" content="#76B041">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>Health Hero: Fight the Germs</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦸</text></svg>">
+    
+    <style>
+        /* === RESET & BASE === */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-primary: #3AA6D0;
+            --color-secondary: #76B041;
+            --color-accent: #FDDC5C;
+            --color-danger: #E94F37;
+            --color-purple: #9B59B6;
+            --spacing: 8px;
+            --radius: 16px;
+            --shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial Rounded MT Bold', cursive, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: manipulation;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 900px;
+            height: 600px;
+            background: #fff;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* === LOADING SCREEN === */
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            transition: opacity 0.5s;
+        }
+
+        #loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 6px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 1.3em;
+            margin-top: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* === PWA INSTALL BANNER === */
+        #install-banner {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-secondary);
+            color: white;
+            padding: 15px 30px;
+            border-radius: var(--radius) var(--radius) 0 0;
+            box-shadow: var(--shadow);
+            transition: bottom 0.3s;
+            z-index: 150;
+            text-align: center;
+        }
+
+        #install-banner.show {
+            bottom: 0;
+        }
+
+        .install-button {
+            background: white;
+            color: var(--color-secondary);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        /* === START MENU === */
+        #start-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .game-title {
+            font-size: clamp(2em, 5vw, 3.5em);
+            color: #fff;
+            text-shadow: 4px 4px 0px var(--color-danger);
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .subtitle {
+            font-size: clamp(1em, 3vw, 1.5em);
+            color: var(--color-accent);
+            margin-bottom: 40px;
+        }
+
+        .menu-button {
+            background: var(--color-accent);
+            border: 4px solid #fff;
+            padding: 15px 40px;
+            font-size: clamp(1em, 2.5vw, 1.3em);
+            font-weight: bold;
+            color: #333;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 6px 0 #d4a82c;
+        }
+
+        .menu-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 9px 0 #d4a82c;
+        }
+
+        .menu-button:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 0 #d4a82c;
+        }
+
+        /* === GAME SCREEN === */
+        #game-screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: linear-gradient(180deg, #87CEEB 0%, #90EE90 100%);
+        }
+
+        /* === HUD === */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255,255,255,0.95);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            z-index: 50;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: clamp(0.9em, 2vw, 1.2em);
+            font-weight: bold;
+            color: #333;
+        }
+
+        .health-bar {
+            width: clamp(100px, 20vw, 150px);
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #333;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-secondary), #90EE90);
+            width: 100%;
+            transition: width 0.3s;
+        }
+
+        /* === GAME AREA === */
+        #game-area {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 80px);
+            overflow: hidden;
+        }
+
+        #player {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            transition: left 0.1s;
+            z-index: 10;
+        }
+
+        .germ {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            animation: float 3s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .germ:hover {
+            transform: scale(1.1);
+        }
+
+        .bubble {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: radial-gradient(circle at 30% 30%, #fff, var(--color-primary));
+            border-radius: 50%;
+            animation: bubbleRise 2s linear;
+            pointer-events: none;
+        }
+
+        /* === HEALTH TIP BANNER === */
+        #health-tip-banner {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-150%);
+            background: white;
+            border: 3px solid var(--color-accent);
+            border-radius: var(--radius);
+            padding: 15px 25px;
+            max-width: 80%;
+            box-shadow: var(--shadow);
+            z-index: 60;
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        #health-tip-banner.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .tip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .tip-title {
+            font-size: 1.1em;
+            color: var(--color-primary);
+            font-weight: bold;
+        }
+
+        .tip-source {
+            font-size: 0.8em;
+            color: #666;
+            font-style: italic;
+        }
+
+        .tip-content {
+            font-size: 0.95em;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .tip-close {
+            background: var(--color-accent);
+            border: none;
+            color: #333;
+            font-size: 1.2em;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+
+        /* === QUIZ SCREEN === */
+        #quiz-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--color-accent) 0%, #FFB347 100%);
+            z-index: 80;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .quiz-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: var(--radius);
+            padding: clamp(20px, 5vw, 30px);
+            box-shadow: var(--shadow);
+        }
+
+        .quiz-question {
+            font-size: clamp(1.2em, 3vw, 1.5em);
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .quiz-option {
+            background: #f0f0f0;
+            border: 3px solid var(--color-primary);
+            padding: 15px 20px;
+            margin: 10px 0;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: clamp(0.95em, 2.5vw, 1.1em);
+        }
+
+        .quiz-option:hover {
+            background: var(--color-primary);
+            color: white;
+            transform: scale(1.02);
+        }
+
+        .quiz-option.correct {
+            background: var(--color-secondary);
+            color: white;
+            border-color: var(--color-secondary);
+        }
+
+        .quiz-option.wrong {
+            background: var(--color-danger);
+            color: white;
+            border-color: var(--color-danger);
+        }
+
+        /* === NUTRITION SCREEN === */
+        #nutrition-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--color-secondary) 0%, #90EE90 100%);
+            z-index: 80;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .nutrition-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: var(--radius);
+            padding: clamp(20px, 5vw, 30px);
+        }
+
+        .plate {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .food-item {
+            background: #f9f9f9;
+            border: 3px solid #ddd;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: clamp(0.9em, 2vw, 1.1em);
+        }
+
+        .food-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .food-item.selected {
+            border-color: var(--color-primary);
+            background: #E3F2FD;
+        }
+
+        /* === ANIMATIONS === */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes bubbleRise {
+            from { 
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+            to { 
+                transform: translateY(-500px) scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        /* === UTILITY === */
+        .hidden {
+            display: none !important;
+        }
+
+        .btn-continue {
+            background: var(--color-secondary);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: clamp(1em, 2.5vw, 1.2em);
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: bold;
+            box-shadow: 0 5px 0 #5a8c31;
+            transition: all 0.3s;
+        }
+
+        .btn-continue:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #5a8c31;
+        }
+
+        .btn-continue:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 0 #5a8c31;
+        }
+
+        /* === OFFLINE INDICATOR === */
+        #offline-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: var(--color-danger);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            display: none;
+            z-index: 200;
+            animation: pulse 2s infinite;
+        }
+
+        #offline-indicator.show {
+            display: block;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            #game-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            .game-title {
+                margin-bottom: 10px;
+            }
+
+            .subtitle {
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- LOADING SCREEN -->
+        <div id="loading-screen">
+            <div class="loader"></div>
+            <div class="loading-text">Loading Health Hero...</div>
+        </div>
+
+        <!-- OFFLINE INDICATOR -->
+        <div id="offline-indicator">📵 Offline Mode</div>
+
+        <!-- PWA INSTALL BANNER -->
+        <div id="install-banner">
+            <p>Install Health Hero for offline play!</p>
+            <button class="install-button" id="install-btn">Install</button>
+            <button class="install-button" id="dismiss-btn">Later</button>
+        </div>
+
+        <!-- START MENU -->
+        <div id="start-menu" class="hidden">
+            <h1 class="game-title">🦸 HEALTH HERO 🦸</h1>
+            <p class="subtitle">Fight the Germs!</p>
+            <button class="menu-button" onclick="game.showInstructions()">📖 How to Play</button>
+            <button class="menu-button" onclick="game.startGame()">▶️ Start Game</button>
+            <button class="menu-button" onclick="game.showCredits()">👏 Credits</button>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="game-screen">
+            <div id="hud">
+                <div class="hud-item">
+                    <span>❤️ HP:</span>
+                    <div class="health-bar">
+                        <div class="health-fill" id="health-fill"></div>
+                    </div>
+                </div>
+                <div class="hud-item">
+                    <span>🏆 Score: <span id="score">0</span></span>
+                </div>
+                <div class="hud-item">
+                    <span>🧼 Soap: <span id="soap-count">20</span></span>
+                </div>
+            </div>
+            
+            <!-- HEALTH TIP BANNER -->
+            <div id="health-tip-banner">
+                <div class="tip-header">
+                    <div>
+                        <div class="tip-title">💡 Health Tip</div>
+                        <div class="tip-source" id="tip-source">Loading...</div>
+                    </div>
+                    <button class="tip-close" onclick="game.closeTipBanner()">×</button>
+                </div>
+                <div class="tip-content" id="tip-content">Loading health tip...</div>
+            </div>
+            
+            <div id="game-area">
+                <!-- Player -->
+                <svg id="player" viewBox="0 0 100 100">
+                    <circle cx="50" cy="35" r="20" fill="#FDDC5C"/>
+                    <rect x="35" y="55" width="30" height="35" fill="#3AA6D0" rx="5"/>
+                    <circle cx="42" cy="28" r="3" fill="#333"/>
+                    <circle cx="58" cy="28" r="3" fill="#333"/>
+                    <path d="M 40 40 Q 50 45 60 40" stroke="#333" stroke-width="2" fill="none"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- QUIZ SCREEN -->
+        <div id="quiz-screen">
+            <div class="quiz-container">
+                <h2 style="text-align: center; color: #3AA6D0; margin-bottom: 20px;">💡 Health Quiz Time!</h2>
+                <div class="quiz-question" id="quiz-question"></div>
+                <div id="quiz-options"></div>
+                <div style="text-align: center;">
+                    <button class="btn-continue hidden" id="quiz-next" onclick="game.nextQuiz()">Continue →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NUTRITION MINI-GAME -->
+        <div id="nutrition-screen">
+            <div class="nutrition-container">
+                <h2 style="text-align: center; color: #fff; margin-bottom: 10px;">🍎 Healthy Meal Challenge!</h2>
+                <p style="text-align: center; color: #fff; font-size: clamp(1em, 2.5vw, 1.2em); margin-bottom: 20px;">Select 3 foods to make a balanced meal</p>
+                <div class="plate" id="food-plate"></div>
+                <div style="text-align: center;">
+                    <button class="btn-continue" onclick="game.checkMeal()">Check My Meal!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === API SERVICE ===
+        class APIService {
+            constructor() {
+                this.cache = new Map();
+                this.cacheTimeout = 24 * 60 * 60 * 1000; // 24 hours
+                this.healthTipsCache = this.loadFromStorage('healthTips') || [];
+                this.nutritionCache = this.loadFromStorage('nutritionData') || {};
+            }
+
+            loadFromStorage(key) {
+                try {
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : null;
+                } catch (e) {
+                    console.error('Storage load error:', e);
+                    return null;
+                }
+            }
+
+            saveToStorage(key, data) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (e) {
+                    console.error('Storage save error:', e);
+                }
+            }
+
+            async getHealthTip() {
+                // Try cache first
+                if (this.healthTipsCache.length > 0) {
+                    const randomTip = this.healthTipsCache[Math.floor(Math.random() * this.healthTipsCache.length)];
+                    return randomTip;
+                }
+
+                // Try MyHealthfinder API
+                try {
+                    const response = await fetch('https://health.gov/myhealthfinder/api/v3/topicsearch.json?lang=en');
+                    const data = await response.json();
+                    
+                    if (data.Result && data.Result.Resources) {
+                        const resources = data.Result.Resources.Resource;
+                        const tips = resources.map(r => ({
+                            content: r.Title || 'Stay healthy!',
+                            source: 'MyHealthfinder.gov',
+                            category: r.Categories?.Category?.[0]?.Name || 'Health',
+                            timestamp: Date.now()
+                        }));
+                        
+                        this.healthTipsCache = [...this.healthTipsCache, ...tips];
+                        this.saveToStorage('healthTips', this.healthTipsCache);
+                        
+                        return tips[0];
+                    }
+                } catch (error) {
+                    console.log('API fetch failed, using fallback');
+                }
+
+                // Fallback to local tips
+                return this.getFallbackTip();
+            }
+
+            getFallbackTip() {
+                const fallbackTips = [
+                    { content: "Wash your hands with soap for 20 seconds before eating and after using the toilet", source: "WHO", category: "hygiene" },
+                    { content: "Drink 6-8 glasses of clean water every day to stay healthy and hydrated", source: "Health Experts", category: "nutrition" },
+                    { content: "Eat colorful fruits and vegetables daily for vitamins and energy", source: "Nutritionists", category: "nutrition" },
+                    { content: "Cover your mouth with your elbow when coughing to prevent spreading germs", source: "CDC", category: "disease_prevention" },
+                    { content: "Brush your teeth twice daily to prevent cavities and keep your smile healthy", source: "Dentists", category: "hygiene" },
+                    { content: "Sleep 8-10 hours every night to help your body grow and repair", source: "Pediatricians", category: "health" },
+                    { content: "Exercise and play for at least 60 minutes daily to stay strong", source: "Health Organizations", category: "health" },
+                    { content: "Keep your fingernails short and clean to prevent hiding germs", source: "Health Experts", category: "hygiene" },
+                    { content: "Boil or treat water before drinking to kill harmful germs", source: "UNICEF", category: "disease_prevention" },
+                    { content: "Sleep under a mosquito net to prevent malaria", source: "WHO", category: "disease_prevention" },
+                    { content: "Eat breakfast every day to have energy for learning and playing", source: "Nutritionists", category: "nutrition" },
+                    { content: "Wear clean clothes daily to prevent skin infections", source: "Health Experts", category: "hygiene" }
+                ];
+
+                const tip = fallbackTips[Math.floor(Math.random() * fallbackTips.length)];
+                
+                // Store in cache for future use
+                if (!this.healthTipsCache.some(t => t.content === tip.content)) {
+                    this.healthTipsCache.push({ ...tip, timestamp: Date.now() });
+                    this.saveToStorage('healthTips', this.healthTipsCache);
+                }
+                
+                return tip;
+            }
+
+            async getNutritionInfo(foodName) {
+                // Check cache
+                if (this.nutritionCache[foodName]) {
+                    return this.nutritionCache[foodName];
+                }
+
+                // Try Open Food Facts API
+                try {
+                    const response = await fetch(
+                        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(foodName)}&search_simple=1&json=1&page_size=1`,
+                        {
+                            headers: {
+                                'User-Agent': 'HealthHeroGame/1.0 (Educational)'
+                            }
+                        }
+                    );
+                    const data = await response.json();
+                    
+                    if (data.products && data.products.length > 0) {
+                        const product = data.products[0];
+                        const nutritionData = {
+                            name: foodName,
+                            calories: product.nutriments?.['energy-kcal_100g'] || 'Unknown',
+                            protein: product.nutriments?.proteins_100g || 'Unknown',
+                            carbs: product.nutriments?.carbohydrates_100g || 'Unknown',
+                            source: 'Open Food Facts'
+                        };
+                        
+                        this.nutritionCache[foodName] = nutritionData;
+                        this.saveToStorage('nutritionData', this.nutritionCache);
+                        
+                        return nutritionData;
+                    }
+                } catch (error) {
+                    console.log('Nutrition API failed, using fallback');
+                }
+
+                // Fallback
+                return {
+                    name: foodName,
+                    calories: 'Unknown',
+                    source: 'Local Data'
+                };
+            }
+        }
+
+        // === GAME DATA ===
+        const quizData = [
+            {
+                question: "How long should you wash your hands with soap?",
+                options: ["5 seconds", "20 seconds", "1 minute", "30 seconds"],
+                correct: 1
+            },
+            {
+                question: "Which drink is healthiest for your body?",
+                options: ["Soda", "Water", "Energy drink", "Sweet juice"],
+                correct: 1
+            },
+            {
+                question: "What should you do after using the toilet?",
+                options: ["Wash hands with soap", "Just use water", "Wipe with tissue", "Nothing"],
+                correct: 0
+            },
+            {
+                question: "Which food helps build strong bones?",
+                options: ["Candy", "Milk and cheese", "Chips", "Soda"],
+                correct: 1
+            },
+            {
+                question: "When should you wash your hands?",
+                options: ["Only in the morning", "Before eating and after toilet", "Never", "Only at night"],
+                correct: 1
+            }
+        ];
+
+        const nutritionData = {
+            foods: [
+                { name: "🍎 Apple", category: "fruit", healthy: true },
+                { name: "🥦 Broccoli", category: "vegetable", healthy: true },
+                { name: "🍗 Chicken", category: "protein", healthy: true },
+                { name: "🍚 Rice", category: "grain", healthy: true },
+                { name: "🍕 Pizza", category: "junk", healthy: false },
+                { name: "🍭 Candy", category: "junk", healthy: false },
+                { name: "🥛 Milk", category: "dairy", healthy: true },
+                { name: "🥕 Carrot", category: "vegetable", healthy: true },
+                { name: "🍔 Burger", category: "junk", healthy: false }
+            ]
+        };
+
+        // === MAIN GAME OBJECT ===
+        const game = {
+            state: {
+                health: 100,
+                score: 0,
+                soapCount: 20,
+                level: 1,
+                germsKilled: 0,
+                quizIndex: 0,
+                correctAnswers: 0,
+                selectedFoods: []
+            },
+            
+            germs: [],
+            germInterval: null,
+            tipTimeout: null,
+            apiService: null,
+            isOnline: navigator.onLine,
+
+            async init() {
+                this.apiService = new APIService();
+                this.setupPWA();
+                this.checkOnlineStatus();
+                this.preloadHealthTips();
+                
+                // Hide loading screen
+                setTimeout(() => {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    document.getElementById('start-menu').classList.remove('hidden');
+                }, 1500);
+            },
+
+            setupPWA() {
+                // Register service worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('service-worker.js')
+                        .then(reg => console.log('SW registered'))
+                        .catch(err => console.log('SW registration failed'));
+                }
+
+                // Install prompt
+                let deferredPrompt;
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    deferredPrompt = e;
+                    document.getElementById('install-banner').classList.add('show');
+                });
+
+                document.getElementById('install-btn').addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        deferredPrompt = null;
+                        document.getElementById('install-banner').classList.remove('show');
+                    }
+                });
+
+                document.getElementById('dismiss-btn').addEventListener('click', () => {
+                    document.getElementById('install-banner').classList.remove('show');
+                });
+            },
+
+            checkOnlineStatus() {
+                const updateOnlineStatus = () => {
+                    this.isOnline = navigator.onLine;
+                    const indicator = document.getElementById('offline-indicator');
+                    if (!this.isOnline) {
+                        indicator.classList.add('show');
+                    } else {
+                        indicator.classList.remove('show');
+                    }
+                };
+
+                window.addEventListener('online', updateOnlineStatus);
+                window.addEventListener('offline', updateOnlineStatus);
+                updateOnlineStatus();
+            },
+
+            async preloadHealthTips() {
+                // Preload tips in background
+                for (let i = 0; i < 3; i++) {
+                    await this.apiService.getHealthTip();
+                }
+            },
+
+            startGame() {
+                document.getElementById('start-menu').style.display = 'none';
+                document.getElementById('game-screen').style.display = 'block';
+                this.resetState();
+                this.updateHUD();
+                this.spawnGerms();
+                this.setupControls();
+                this.showHealthTip();
+            },
+
+            resetState() {
+                this.state = {
+                    health: 100,
+                    score: 0,
+                    soapCount: 20,
+                    level: 1,
+                    germsKilled: 0,
+                    quizIndex: 0,
+                    correctAnswers: 0,
+                    selectedFoods: []
+                };
+            },
+
+            showInstructions() {
+                alert("🦸 HOW TO PLAY:\n\n" +
+                    "1. Click on germs to blast them with soap bubbles!\n" +
+                    "2. Answer health quizzes correctly to earn bonus points\n" +
+                    "3. Complete the healthy meal challenge\n" +
+                    "4. Learn fun facts about health and hygiene!\n\n" +
+                    "🎯 GOAL: Kill all germs and become a Health Hero!");
+            },
+
+            showCredits() {
+                alert("👏 CREDITS\n\n" +
+                    "Health Hero: Fight the Germs\n" +
+                    "An educational game teaching hygiene and nutrition\n\n" +
+                    "APIs Used:\n" +
+                    "- MyHealthfinder.gov (Health Tips)\n" +
+                    "- Open Food Facts (Nutrition Data)\n\n" +
+                    "Created with ❤️ to empower children\n" +
+                    "Stay clean, stay healthy!");
+            },
+
+            async showHealthTip() {
+                const banner = document.getElementById('health-tip-banner');
+                const contentEl = document.getElementById('tip-content');
+                const sourceEl = document.getElementById('tip-source');
+
+                const showTip = async () => {
+                    const tip = await this.apiService.getHealthTip();
+                    contentEl.textContent = tip.content;
+                    sourceEl.textContent = `Source: ${tip.source}`;
+                    banner.classList.add('show');
+
+                    setTimeout(() => {
+                        banner.classList.remove('show');
+                    }, 8000);
+                };
+
+                await showTip();
+                
+                this.tipTimeout = setInterval(showTip, 15000);
+            },
+
+            closeTipBanner() {
+                document.getElementById('health-tip-banner').classList.remove('show');
+            },
+
+            spawnGerms() {
+                const germTypes = [
+                    { name: 'Flu Virus', color: '#E94F37', points: 10 },
+                    { name: 'Bacteria', color: '#9B59B6', points: 15 },
+                    { name: 'Dirt Germ', color: '#8B4513', points: 20 }
+                ];
+
+                this.germInterval = setInterval(() => {
+                    if (this.germs.length < 8) {
+                        const type = germTypes[Math.floor(Math.random() * germTypes.length)];
+                        const germ = {
+                            x: Math.random() * (window.innerWidth > 900 ? 800 : window.innerWidth - 100),
+                            y: Math.random() * 300 + 100,
+                            type: type,
+                            id: Date.now() + Math.random()
+                        };
+                        
+                        this.germs.push(germ);
+                        this.renderGerm(germ);
+                    }
+                }, 2000);
+            },
+
+            renderGerm(germ) {
+                const gameArea = document.getElementById('game-area');
+                const germEl = document.createElement('div');
+                germEl.className = 'germ';
+                germEl.id = 'germ-' + germ.id;
+                germEl.style.left = germ.x + 'px';
+                germEl.style.top = germ.y + 'px';
+                germEl.innerHTML = `
+                    <svg viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" fill="${germ.type.color}"/>
+                        <circle cx="35" cy="40" r="8" fill="#fff"/>
+                        <circle cx="65" cy="40" r="8" fill="#fff"/>
+                        <circle cx="37" cy="42" r="4" fill="#000"/>
+                        <circle cx="67" cy="42" r="4" fill="#000"/>
+                        <path d="M 35 65 Q 50 55 65 65" stroke="#000" stroke-width="3" fill="none"/>
+                    </svg>
+                `;
+                
+                germEl.onclick = () => this.shootGerm(germ.id);
+                gameArea.appendChild(germEl);
+            },
+
+            shootGerm(germId) {
+                if (this.state.soapCount <= 0) {
+                    alert("Out of soap! Game Over!");
+                    this.endLevel();
+                    return;
+                }
+
+                this.state.soapCount--;
+                const germEl = document.getElementById('germ-' + germId);
+                
+                if (germEl) {
+                    this.createBubble(germEl.offsetLeft + 25, germEl.offsetTop);
+                    
+                    germEl.style.transform = 'scale(0)';
+                    setTimeout(() => germEl.remove(), 300);
+                    
+                    const germIndex = this.germs.findIndex(g => g.id === germId);
+                    if (germIndex > -1) {
+                        this.state.score += this.germs[germIndex].type.points;
+                        this.state.germsKilled++;
+                        this.germs.splice(germIndex, 1);
+                    }
+                    
+                    this.updateHUD();
+
+                    if (this.state.germsKilled >= 10) {
+                        this.endLevel();
+                    }
+                }
+            },
+
+            createBubble(x, y) {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.style.left = x + 'px';
+                bubble.style.top = y + 'px';
+                document.getElementById('game-area').appendChild(bubble);
+                
+                setTimeout(() => bubble.remove(), 2000);
+            },
+
+            setupControls() {
+                const player = document.getElementById('player');
+                let playerX = window.innerWidth > 900 ? 450 : window.innerWidth / 2;
+
+                document.addEventListener('keydown', (e) => {
+                    const maxX = window.innerWidth > 900 ? 850 : window.innerWidth - 50;
+                    if (e.key === 'ArrowLeft' && playerX > 50) {
+                        playerX -= 30;
+                    } else if (e.key === 'ArrowRight' && playerX < maxX) {
+                        playerX += 30;
+                    }
+                    player.style.left = playerX + 'px';
+                });
+
+                document.getElementById('game-area').addEventListener('click', (e) => {
+                    if (e.target.id === 'game-area') {
+                        this.createBubble(e.offsetX, e.offsetY);
+                        this.state.soapCount--;
+                        this.updateHUD();
+                    }
+                });
+            },
+
+            updateHUD() {
+                document.getElementById('score').textContent = this.state.score;
+                document.getElementById('soap-count').textContent = this.state.soapCount;
+                document.getElementById('health-fill').style.width = this.state.health + '%';
+            },
+
+            endLevel() {
+                clearInterval(this.germInterval);
+                clearTimeout(this.tipTimeout);
+                
+                this.germs.forEach(germ => {
+                    const el = document.getElementById('germ-' + germ.id);
+                    if (el) el.remove();
+                });
+                this.germs = [];
+
+                setTimeout(() => this.showQuiz(), 500);
+            },
+
+            showQuiz() {
+                document.getElementById('game-screen').style.display = 'none';
+                document.getElementById('quiz-screen').style.display = 'block';
+                
+                this.loadQuizQuestion();
+            },
+
+            loadQuizQuestion() {
+                if (this.state.quizIndex >= 3) {
+                    this.showNutritionGame();
+                    return;
+                }
+
+                const quiz = quizData[this.state.quizIndex];
+                document.getElementById('quiz-question').textContent = quiz.question;
+                
+                const optionsDiv = document.getElementById('quiz-options');
+                optionsDiv.innerHTML = '';
+                
+                quiz.options.forEach((option, index) => {
+                    const btn = document.createElement('div');
+                    btn.className = 'quiz-option';
+                    btn.textContent = option;
+                    btn.onclick = () => this.checkAnswer(index, quiz.correct);
+                    optionsDiv.appendChild(btn);
+                });
+
+                document.getElementById('quiz-next').classList.add('hidden');
+            },
+
+            checkAnswer(selected, correct) {
+                const options = document.querySelectorAll('.quiz-option');
+                options.forEach((opt, i) => {
+                    opt.style.pointerEvents = 'none';
+                    if (i === correct) {
+                        opt.classList.add('correct');
+                    } else if (i === selected && selected !== correct) {
+                        opt.classList.add('wrong');
+                    }
+                });
+
+                if (selected === correct) {
+                    this.state.score += 50;
+                    this.state.correctAnswers++;
+                }
+
+                document.getElementById('quiz-next').classList.remove('hidden');
+            },
+
+            nextQuiz() {
+                this.state.quizIndex++;
+                this.loadQuizQuestion();
+            },
+
+            showNutritionGame() {
+                document.getElementById('quiz-screen').style.display = 'none';
+                document.getElementById('nutrition-screen').style.display = 'block';
+                
+                this.state.selectedFoods = [];
+                const plate = document.getElementById('food-plate');
+                plate.innerHTML = '';
+
+                nutritionData.foods.forEach((food, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'food-item';
+                    item.textContent = food.name;
+                    item.onclick = () => this.selectFood(index, item);
+                    plate.appendChild(item);
+                });
+            },
+
+            selectFood(index, element) {
+                if (this.state.selectedFoods.includes(index)) {
+                    this.state.selectedFoods = this.state.selectedFoods.filter(i => i !== index);
+                    element.classList.remove('selected');
+                } else if (this.state.selectedFoods.length < 3) {
+                    this.state.selectedFoods.push(index);
+                    element.classList.add('selected');
+                }
+            },
+
+            checkMeal() {
+                if (this.state.selectedFoods.length !== 3) {
+                    alert("Please select exactly 3 foods!");
+                    return;
+                }
+
+                const selected = this.state.selectedFoods.map(i => nutritionData.foods[i]);
+                const healthyCount = selected.filter(f => f.healthy).length;
+
+                if (healthyCount >= 2) {
+                    this.state.score += 100;
+                    alert("🎉 Great meal! You earned 100 points!");
+                } else {
+                    alert("😕 Try to choose healthier foods next time!");
+                }
+
+                this.endGame();
+            },
+
+            endGame() {
+                document.getElementById('nutrition-screen').style.display = 'none';
+                
+                alert(`🎉 LEVEL COMPLETE!\n\n` +
+                    `Final Score: ${this.state.score}\n` +
+                    `Germs Killed: ${this.state.germsKilled}\n` +
+                    `Quiz Correct: ${this.state.correctAnswers}/3\n\n` +
+                    `You're a Health Hero! 🦸`);
+                
+                document.getElementById('start-menu').style.display = 'flex';
+            }
+        };
+
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            game.init();
+        });
+    </script>
+</body>
+</html>
