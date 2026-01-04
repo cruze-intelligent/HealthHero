@@ -515,6 +515,290 @@
             display: block;
         }
 
+        /* === HOW TO PLAY OVERLAY === */
+        #how-to-play-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 150;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #how-to-play-overlay.show {
+            display: flex;
+        }
+
+        .instructions-container {
+            max-width: 600px;
+            background: white;
+            border-radius: var(--radius);
+            padding: clamp(20px, 5vw, 40px);
+            box-shadow: var(--shadow);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .instructions-title {
+            font-size: clamp(1.5em, 4vw, 2.2em);
+            color: var(--color-primary);
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .instruction-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid var(--color-accent);
+        }
+
+        .instruction-section:last-child {
+            border-bottom: none;
+        }
+
+        .instruction-subtitle {
+            font-size: clamp(1.1em, 3vw, 1.4em);
+            color: var(--color-secondary);
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .instruction-text {
+            font-size: clamp(0.95em, 2.5vw, 1.1em);
+            color: #333;
+            line-height: 1.7;
+            margin-bottom: 10px;
+        }
+
+        .instruction-list {
+            margin-left: 20px;
+            font-size: clamp(0.9em, 2.5vw, 1.05em);
+            color: #555;
+            line-height: 1.8;
+        }
+
+        .instruction-list li {
+            margin-bottom: 10px;
+            list-style-position: inside;
+        }
+
+        .game-objective {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #FFE082 100%);
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 5px solid var(--color-secondary);
+            font-size: clamp(0.95em, 2.5vw, 1.1em);
+            font-weight: bold;
+            color: #333;
+        }
+
+        .control-guide {
+            background: #E3F2FD;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border-left: 5px solid var(--color-primary);
+            font-size: clamp(0.9em, 2.5vw, 1em);
+            color: #333;
+        }
+
+        /* === CREDITS OVERLAY === */
+        #credits-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 150;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #credits-overlay.show {
+            display: flex;
+        }
+
+        .credits-container {
+            max-width: 600px;
+            background: white;
+            border-radius: var(--radius);
+            padding: clamp(25px, 6vw, 50px);
+            box-shadow: var(--shadow);
+            text-align: center;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .credits-title {
+            font-size: clamp(1.8em, 5vw, 2.5em);
+            color: var(--color-primary);
+            margin-bottom: 20px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        .credits-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+        }
+
+        .credits-label {
+            font-size: clamp(0.95em, 2.5vw, 1.15em);
+            font-weight: bold;
+            color: var(--color-primary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .credits-content {
+            font-size: clamp(0.9em, 2.5vw, 1.05em);
+            color: #333;
+            line-height: 1.8;
+            margin: 10px 0;
+        }
+
+        .credits-developer {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #FFE082 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+            border: 3px solid var(--color-secondary);
+        }
+
+        .developer-name {
+            font-size: clamp(1.1em, 3vw, 1.4em);
+            font-weight: bold;
+            color: var(--color-secondary);
+            margin-bottom: 8px;
+        }
+
+        .developer-email {
+            font-size: clamp(0.9em, 2.5vw, 1.05em);
+            color: #333;
+            word-break: break-all;
+        }
+
+        .api-section {
+            margin: 25px 0;
+        }
+
+        .api-item {
+            background: #EFF7FF;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid var(--color-primary);
+            font-size: clamp(0.9em, 2.3vw, 1em);
+            color: #333;
+            text-align: left;
+        }
+
+        .api-name {
+            font-weight: bold;
+            color: var(--color-primary);
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .credits-mission {
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 25px 0;
+            font-size: clamp(0.95em, 2.5vw, 1.1em);
+            color: #2E7D32;
+            font-weight: 500;
+            line-height: 1.8;
+            border: 2px solid var(--color-secondary);
+        }
+
+        .back-button {
+            background: var(--color-danger);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: clamp(0.95em, 2.5vw, 1.15em);
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 30px;
+            font-weight: bold;
+            box-shadow: 0 5px 0 #c73421;
+            transition: all 0.3s;
+        }
+
+        .back-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 0 #c73421;
+        }
+
+        .back-button:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 0 #c73421;
+        }
+
+        /* === LEVEL-UP NOTIFICATION === */
+        .level-up-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border: 4px solid #FF6B00;
+            border-radius: 20px;
+            padding: 40px;
+            z-index: 300;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 -4px 0 rgba(0,0,0,0.2);
+            animation: popUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-align: center;
+            max-width: 80%;
+        }
+
+        @keyframes popUp {
+            0% {
+                transform: translate(-50%, -50%) scale(0.3);
+                opacity: 0;
+            }
+            70% {
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .level-up-content h2 {
+            font-size: clamp(2em, 6vw, 3em);
+            color: #FF6B00;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .level-up-content p {
+            font-size: clamp(1.1em, 2.5vw, 1.5em);
+            color: #333;
+            font-weight: bold;
+            margin: 0;
+        }
+
         /* === RESPONSIVE === */
         @media (max-width: 768px) {
             #game-container {
@@ -528,6 +812,39 @@
 
             .subtitle {
                 margin-bottom: 20px;
+            }
+
+            .instructions-container,
+            .credits-container {
+                margin-top: 10px;
+                margin-bottom: 10px;
+            }
+
+            #how-to-play-screen,
+            #credits-screen {
+                padding: 10px;
+            }
+
+            .instruction-section,
+            .credits-section {
+                margin-bottom: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .instructions-container,
+            .credits-container {
+                padding: clamp(15px, 4vw, 20px);
+            }
+
+            .instruction-subtitle,
+            .credits-label {
+                font-size: clamp(1em, 2.5vw, 1.1em);
+            }
+
+            .back-button {
+                width: 100%;
+                margin-top: 20px;
             }
         }
     </style>
@@ -559,9 +876,166 @@
             <button class="menu-button" onclick="game.showCredits()">👏 Credits</button>
         </div>
 
+        <!-- HOW TO PLAY SCREEN -->
+        <!-- HOW TO PLAY OVERLAY -->
+        <div id="how-to-play-overlay">
+            <div class="instructions-container">
+                <h1 class="instructions-title">📖 How To Play</h1>
+                
+                <div class="game-objective">
+                    🎯 Your Mission: Become a Health Hero by defeating germs and learning about health!
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-subtitle">🦠 Level 1: Germ Fighting</div>
+                    <p class="instruction-text">Click on the colorful germs to blast them away with soap bubbles!</p>
+                    <ul class="instruction-list">
+                        <li><strong>Flu Virus (Red):</strong> Worth 10 points</li>
+                        <li><strong>Bacteria (Purple):</strong> Worth 15 points</li>
+                        <li><strong>Dirt Germ (Brown):</strong> Worth 20 points</li>
+                    </ul>
+                    <div class="control-guide">
+                        <strong>Controls:</strong> Click each germ OR press Left/Right arrow keys to move around
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-subtitle">💡 Health Tips</div>
+                    <p class="instruction-text">During gameplay, you'll see helpful health tips appear! These come from real health organizations and teach you about:</p>
+                    <ul class="instruction-list">
+                        <li>Hand washing and personal hygiene</li>
+                        <li>Healthy eating and nutrition</li>
+                        <li>Disease prevention</li>
+                        <li>Good health habits</li>
+                    </ul>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-subtitle">🧠 Level 2: Health Quiz</div>
+                    <p class="instruction-text">Answer 3 health questions to test your knowledge!</p>
+                    <ul class="instruction-list">
+                        <li>Each correct answer: <strong>+50 points</strong></li>
+                        <li>Choose the best answer from 4 options</li>
+                        <li>Learn while you play!</li>
+                    </ul>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-subtitle">🥗 Level 3: Healthy Meal Challenge</div>
+                    <p class="instruction-text">Select 3 healthy foods to make a balanced meal!</p>
+                    <ul class="instruction-list">
+                        <li>Choose at least 2 healthy foods for bonus points</li>
+                        <li>Mix fruits, vegetables, proteins, and grains</li>
+                        <li>Avoid junk foods!</li>
+                    </ul>
+                </div>
+
+                <div class="instruction-section">
+                    <div class="instruction-subtitle">⭐ Scoring & Tips</div>
+                    <p class="instruction-text">
+                        <strong>Killing Germs:</strong> Earn points for each germ (10-20 per germ)<br>
+                        <strong>Quiz Answers:</strong> 50 points per correct answer<br>
+                        <strong>Healthy Meals:</strong> Up to 100 bonus points<br>
+                        <br>
+                        <strong>Challenge yourself:</strong> Try to get the highest score and become a true Health Hero!
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="back-button" onclick="game.closeInstructions()">← Back</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CREDITS OVERLAY -->
+        <div id="credits-overlay">
+            <div class="credits-container">
+                <h1 class="credits-title">👏 Credits</h1>
+
+                <div class="credits-section">
+                    <div class="credits-content" style="font-size: clamp(1.1em, 3vw, 1.3em); color: var(--color-primary); font-weight: bold;">
+                        Health Hero: Fight the Germs
+                    </div>
+                    <p class="credits-content">An Educational Game for a Healthier Future</p>
+                </div>
+
+                <div class="credits-developer">
+                    <div class="developer-name">Developed by:</div>
+                    <div class="developer-name">Cruze-Tech</div>
+                    <div class="developer-email">📧 cruze-tech.com</div>
+                    <div class="developer-email">🌐 games.cruze-tech.com</div>
+                </div>
+
+                <div class="credits-section">
+                    <div class="credits-label">🔌 API Partners</div>
+                    <p class="credits-content">Special thanks to our data providers:</p>
+                    <div class="api-section">
+                        <div class="api-item">
+                            <span class="api-name">💡 MyHealthfinder.gov</span>
+                            U.S. Department of Health & Human Services - Providing evidence-based health recommendations
+                        </div>
+                        <div class="api-item">
+                            <span class="api-name">🍎 Open Food Facts</span>
+                            Community-driven food database with nutrition information for 900,000+ products
+                        </div>
+                    </div>
+                </div>
+
+                <div class="credits-section">
+                    <div class="credits-label">🛠️ Built With</div>
+                    <p class="credits-content">
+                        <strong>Technology:</strong> HTML5, CSS3, JavaScript<br>
+                        <strong>Framework:</strong> Progressive Web App (PWA)<br>
+                        <strong>Features:</strong> Offline Support, Service Workers, Responsive Design
+                    </p>
+                </div>
+
+                <div class="credits-section">
+                    <div class="credits-label">📱 Platforms</div>
+                    <p class="credits-content">
+                        Works on <strong>all devices:</strong><br>
+                        ✅ Desktop (Windows, Mac, Linux)<br>
+                        ✅ Mobile (iOS, Android)<br>
+                        ✅ Tablet (iPad, Android Tablets)<br>
+                        ✅ Offline Mode Supported
+                    </p>
+                </div>
+
+                <div class="credits-mission">
+                    <strong>Our Mission:</strong><br>
+                    To empower children worldwide with knowledge about health, hygiene, and wellness through fun, interactive learning experiences. Every child deserves to be a Health Hero! 🦸
+                </div>
+
+                <div class="credits-section">
+                    <div class="credits-label">🌍 Global Reach</div>
+                    <p class="credits-content">
+                        Created to support health education globally<br>
+                        <strong>Languages:</strong> English (with expansion planned)<br>
+                        <strong>Accessibility:</strong> Designed for all abilities<br>
+                        <strong>Free & Open:</strong> No ads, no tracking, no paywalls
+                    </p>
+                </div>
+
+                <div class="credits-section">
+                    <div class="credits-label">❤️ Special Thanks</div>
+                    <p class="credits-content">
+                        To educators, health professionals, and students<br>
+                        who inspired this educational game
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="back-button" onclick="game.closeCredits()">← Back</button>
+                </div>
+            </div>
+        </div>
+
         <!-- GAME SCREEN -->
         <div id="game-screen">
             <div id="hud">
+                <div class="hud-item">
+                    <span>⭐ Level: <span id="level">1</span></span>
+                </div>
                 <div class="hud-item">
                     <span>❤️ HP:</span>
                     <div class="health-bar">
@@ -813,7 +1287,8 @@
                 germsKilled: 0,
                 quizIndex: 0,
                 correctAnswers: 0,
-                selectedFoods: []
+                selectedFoods: [],
+                levelScore: 0
             },
             
             germs: [],
@@ -892,6 +1367,7 @@
                 document.getElementById('start-menu').style.display = 'none';
                 document.getElementById('game-screen').style.display = 'block';
                 this.resetState();
+                this.initLevel();
                 this.updateHUD();
                 this.spawnGerms();
                 this.setupControls();
@@ -907,28 +1383,88 @@
                     germsKilled: 0,
                     quizIndex: 0,
                     correctAnswers: 0,
-                    selectedFoods: []
+                    selectedFoods: [],
+                    levelScore: 0
                 };
             },
 
+            levelConfig: {
+                1: { germsToKill: 10, soapCount: 20, germSpawnRate: 2000, healthPerGerm: 5 },
+                2: { germsToKill: 15, soapCount: 15, germSpawnRate: 1500, healthPerGerm: 7 },
+                3: { germsToKill: 20, soapCount: 10, germSpawnRate: 1000, healthPerGerm: 10 }
+            },
+
+            initLevel() {
+                const levelSettings = this.levelConfig[this.state.level] || this.levelConfig[1];
+                this.state.germsKilled = 0;
+                this.state.soapCount = levelSettings.soapCount;
+                this.state.health = 100;
+                this.state.levelScore = 0;
+                this.state.quizIndex = 0;
+                this.state.correctAnswers = 0;
+                this.updateHUD();
+            },
+
+            nextLevel() {
+                if (this.state.level < 3) {
+                    this.state.level++;
+                    document.getElementById('level').textContent = this.state.level;
+                    this.showLevelUp();
+                    setTimeout(() => {
+                        clearInterval(this.germInterval);
+                        clearTimeout(this.tipTimeout);
+                        this.germs = [];
+                        document.getElementById('game-screen').style.display = 'block';
+                        document.getElementById('quiz-screen').style.display = 'none';
+                        document.getElementById('nutrition-screen').style.display = 'none';
+                        this.initLevel();
+                        this.spawnGerms();
+                        this.showHealthTip();
+                    }, 3500);
+                } else {
+                    this.endGame(true);
+                }
+            },
+
+            showLevelUp() {
+                const notification = document.createElement('div');
+                notification.className = 'level-up-notification';
+                notification.innerHTML = `
+                    <div class="level-up-content">
+                        <h2>🎉 Level ${this.state.level}!</h2>
+                        <p>Get ready for a tougher challenge!</p>
+                    </div>
+                `;
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
+            },
+
             showInstructions() {
-                alert("🦸 HOW TO PLAY:\n\n" +
-                    "1. Click on germs to blast them with soap bubbles!\n" +
-                    "2. Answer health quizzes correctly to earn bonus points\n" +
-                    "3. Complete the healthy meal challenge\n" +
-                    "4. Learn fun facts about health and hygiene!\n\n" +
-                    "🎯 GOAL: Kill all germs and become a Health Hero!");
+                document.getElementById('how-to-play-overlay').classList.add('show');
+            },
+
+            closeInstructions() {
+                document.getElementById('how-to-play-overlay').classList.remove('show');
             },
 
             showCredits() {
-                alert("👏 CREDITS\n\n" +
-                    "Health Hero: Fight the Germs\n" +
-                    "An educational game teaching hygiene and nutrition\n\n" +
-                    "APIs Used:\n" +
-                    "- MyHealthfinder.gov (Health Tips)\n" +
-                    "- Open Food Facts (Nutrition Data)\n\n" +
-                    "Created with ❤️ to empower children\n" +
-                    "Stay clean, stay healthy!");
+                document.getElementById('credits-overlay').classList.add('show');
+            },
+
+            closeCredits() {
+                document.getElementById('credits-overlay').classList.remove('show');
+            },
+
+            backToMenu() {
+                this.closeInstructions();
+                this.closeCredits();
+                clearInterval(this.germInterval);
+                clearTimeout(this.tipTimeout);
+                this.germs = [];
+                document.getElementById('game-screen').style.display = 'none';
+                document.getElementById('quiz-screen').style.display = 'none';
+                document.getElementById('nutrition-screen').style.display = 'none';
+                document.getElementById('start-menu').classList.remove('hidden');
             },
 
             async showHealthTip() {
@@ -963,6 +1499,8 @@
                     { name: 'Dirt Germ', color: '#8B4513', points: 20 }
                 ];
 
+                const levelSettings = this.levelConfig[this.state.level] || this.levelConfig[1];
+
                 this.germInterval = setInterval(() => {
                     if (this.germs.length < 8) {
                         const type = germTypes[Math.floor(Math.random() * germTypes.length)];
@@ -976,7 +1514,7 @@
                         this.germs.push(germ);
                         this.renderGerm(germ);
                     }
-                }, 2000);
+                }, levelSettings.germSpawnRate);
             },
 
             renderGerm(germ) {
@@ -1020,13 +1558,15 @@
                     const germIndex = this.germs.findIndex(g => g.id === germId);
                     if (germIndex > -1) {
                         this.state.score += this.germs[germIndex].type.points;
+                        this.state.levelScore += this.germs[germIndex].type.points;
                         this.state.germsKilled++;
                         this.germs.splice(germIndex, 1);
                     }
                     
                     this.updateHUD();
 
-                    if (this.state.germsKilled >= 10) {
+                    const levelSettings = this.levelConfig[this.state.level] || this.levelConfig[1];
+                    if (this.state.germsKilled >= levelSettings.germsToKill) {
                         this.endLevel();
                     }
                 }
@@ -1181,19 +1721,39 @@
                     alert("😕 Try to choose healthier foods next time!");
                 }
 
-                this.endGame();
+                this.endLevel();
             },
 
-            endGame() {
+            endLevel() {
                 document.getElementById('nutrition-screen').style.display = 'none';
                 
-                alert(`🎉 LEVEL COMPLETE!\n\n` +
-                    `Final Score: ${this.state.score}\n` +
-                    `Germs Killed: ${this.state.germsKilled}\n` +
-                    `Quiz Correct: ${this.state.correctAnswers}/3\n\n` +
-                    `You're a Health Hero! 🦸`);
+                if (this.state.level < 3) {
+                    this.nextLevel();
+                } else {
+                    this.endGame(true);
+                }
+            },
+
+            endGame(isVictory = false) {
+                document.getElementById('nutrition-screen').style.display = 'none';
                 
-                document.getElementById('start-menu').style.display = 'flex';
+                if (isVictory) {
+                    alert(`🏆 VICTORY!\n\n` +
+                        `You completed all 3 levels!\n\n` +
+                        `Final Score: ${this.state.score}\n` +
+                        `Germs Killed: ${this.state.germsKilled}\n\n` +
+                        `You're a Health Hero Champion! 🦸`);
+                } else {
+                    alert(`🎉 LEVEL COMPLETE!\n\n` +
+                        `Final Score: ${this.state.score}\n` +
+                        `Germs Killed: ${this.state.germsKilled}\n` +
+                        `Quiz Correct: ${this.state.correctAnswers}/3\n\n` +
+                        `You're a Health Hero! 🦸`);
+                }
+                
+                this.resetState();
+                document.getElementById('start-menu').classList.remove('hidden');
+                document.getElementById('game-screen').style.display = 'none';
             }
         };
 
