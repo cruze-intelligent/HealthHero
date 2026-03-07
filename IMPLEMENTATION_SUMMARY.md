@@ -44,13 +44,11 @@ Implemented a beautiful, comprehensive "Credits" screen featuring:
 
 #### Sections Included:
 - ✅ **Game Title & Subtitle**
-  - "Health Hero: Fight the Germs"
+  - "Health Hero: Healthy Habits Adventure"
   - "An Educational Game for a Healthier Future"
 
 - ✅ **Developer Attribution** (As Requested)
-  - Prominent "Cruze-Tech" branding
-  - Email: cruze-tech@cruze-tech.com
-  - Website: games.cruze-tech.com
+  - Exact attribution string: Cruze Intelligent Systems(U) Ltd at cruzeintelligentsystems.com
   - Custom-styled yellow developer box
 
 - ✅ **API Partners Section**
@@ -244,7 +242,7 @@ backToMenu() {
     <h1 class="credits-title">👏 Credits</h1>
     
     <div class="credits-section">Game title & description</div>
-    <div class="credits-developer">Cruze-Tech developer info</div>
+    <div class="credits-developer">Cruze Intelligent Systems(U) Ltd at cruzeintelligentsystems.com</div>
     <div class="credits-section">API Partners</div>
     <div class="credits-section">Technology Stack</div>
     <div class="credits-section">Platform Support</div>
@@ -347,7 +345,7 @@ showInstructions() {
 5. **Progression** - What to expect in each level
 
 ### Credits Content Covers:
-1. **Team Attribution** - Clear developer credit (Cruze-Tech)
+1. **Team Attribution** - Clear developer credit (Cruze Intelligent Systems(U) Ltd at cruzeintelligentsystems.com)
 2. **Contact Information** - Email and website
 3. **Data Partners** - API acknowledgments
 4. **Technology Stack** - What powers the game
@@ -362,9 +360,9 @@ showInstructions() {
 ```
 Main Menu
   ↓
-  ├─→ "How To Play" → Instructions Screen → [Back] → Main Menu
-  ├─→ "Start Game" → Game Screen → ... → End Game → Main Menu
-  └─→ "Credits" → Credits Screen → [Back] → Main Menu
+  ├─→ "Start Adventure" → Mission Screen → Stage Flow → Mission Report
+  ├─→ "Mission Map" → Mission Select → Stage Intro → Stage Flow
+  └─→ "Help" → Mission Guide Overlay → [Close] → Main Menu
 ```
 
 ---
@@ -405,7 +403,7 @@ All requirements have been successfully implemented:
 
 2. ✅ **Credits Screen**
    - Professional branding
-   - Cruze-Tech attribution with contact info
+   - Cruze Intelligent Systems(U) Ltd at cruzeintelligentsystems.com
    - API partner acknowledgments
    - Mission statement
    - Fully scalable design
@@ -434,7 +432,7 @@ The implementation is production-ready:
 - ✅ Accessible to all users
 - ✅ Professional appearance
 - ✅ Educational value maintained
-- ✅ Brand consistency (Cruze-Tech)
+- ✅ Brand consistency (Cruze Intelligent Systems(U) Ltd at cruzeintelligentsystems.com)
 
 ---
 

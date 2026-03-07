@@ -197,7 +197,7 @@ firebase deploy
 # 1. Basic Load Test
 ✓ Visit your URL
 ✓ Game loads without errors
-✓ Click "Start Game" - works?
+✓ Click "Start Adventure" - works?
 
 # 2. PWA Test
 ✓ Install prompt appears?
@@ -206,8 +206,8 @@ firebase deploy
 
 # 3. API Test
 ✓ Health tips load?
-✓ Tips show in banner?
-✓ Different tips on reload?
+✓ Tips appear in the dashboard and mission panels?
+✓ Different tips can load on refresh?
 
 # 4. Offline Test
 ✓ Load game online first

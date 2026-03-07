@@ -1,10 +1,10 @@
-# 🦸 Health Hero: Fight the Germs - Production Ready
+# 🦸 Health Hero: Healthy Habits Adventure - Production Ready
 
 [![PWA Ready](https://img.shields.io/badge/PWA-Ready-success)](https://web.dev/progressive-web-apps/)
 [![Offline First](https://img.shields.io/badge/Offline-First-blue)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Offline_Service_workers)
 [![Education](https://img.shields.io/badge/Category-Education-brightgreen)](https://github.com/)
 
-> An educational Progressive Web App teaching children about hygiene, nutrition, and disease prevention through interactive gameplay.
+> A mission-based Progressive Web App teaching children about hygiene, nutrition, prevention, and wellness through interactive play.
 
 ---
 
@@ -12,8 +12,8 @@
 
 ### **Play Now (No Installation)**
 1. Open `index.html` in your browser
-2. Click "Start Game"
-3. Start fighting germs!
+2. Click "Start Adventure"
+3. Begin the four-mission campaign
 
 ### **Install as PWA**
 1. Open the game in Chrome/Edge/Safari
@@ -28,7 +28,11 @@
 ### **Core Files** (Production Ready)
 ```
 health-hero/
-├── index.html              ✅ Complete game with API integration
+├── index.html              ✅ App shell and semantic screen structure
+├── assets/css/app.css      ✅ Mission Control interface styling
+├── assets/js/content.js    ✅ Mission, quiz, and challenge content
+├── assets/js/game.js       ✅ Mission state and gameplay systems
+├── assets/js/app.js        ✅ App bootstrap
 ├── service-worker.js       ✅ PWA offline functionality
 ├── manifest.json           ✅ PWA configuration
 └── README.md              ✅ This file
@@ -40,8 +44,8 @@ health-hero/
 - ✅ **API Integration** - Live health tips from MyHealthfinder.gov
 - ✅ **Smart Caching** - Stores tips for offline use
 - ✅ **Responsive Design** - Works on mobile, tablet, desktop
-- ✅ **Educational Content** - Hygiene, nutrition, disease prevention
-- ✅ **Interactive Gameplay** - Germ fighting, quizzes, meal challenges
+- ✅ **Educational Content** - Hygiene, nutrition, prevention, wellness
+- ✅ **Adventure Campaign** - 4 missions, 12 stages, badges, replayable progress
 
 ---
 

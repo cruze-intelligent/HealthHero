@@ -138,7 +138,7 @@ health-hero/
 ### 📄 **manifest.json** (PWA Configuration)
 ```json
 {
-  "name": "Health Hero: Fight the Germs",
+  "name": "Health Hero: Healthy Habits Adventure",
   "short_name": "Health Hero",
   "description": "Educational game teaching hygiene and nutrition",
   "start_url": "/index.html",
@@ -498,7 +498,7 @@ VITE_API_NINJAS_KEY=your_key_here
 {
   "en": {
     "game.title": "Health Hero",
-    "game.start": "Start Game"
+    "game.start": "Start Adventure"
   },
   "lg": {
     "game.title": "Omulwanyi w'Obulamu",
