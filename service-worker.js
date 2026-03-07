@@ -1,5 +1,5 @@
-const CACHE_NAME = "health-hero-v2.0.0";
-const RUNTIME_CACHE = "health-hero-runtime-v2.0.0";
+const CACHE_NAME = "health-hero-v2.0.1";
+const RUNTIME_CACHE = "health-hero-runtime-v2.0.1";
 
 const STATIC_ASSETS = [
     "./",
@@ -9,11 +9,6 @@ const STATIC_ASSETS = [
     "./assets/js/content.js",
     "./assets/js/game.js",
     "./assets/js/app.js"
-];
-
-const API_CACHE_PATTERNS = [
-    /health\.gov\/myhealthfinder/,
-    /openfoodfacts\.org/
 ];
 
 self.addEventListener("install", function (event) {
@@ -54,13 +49,12 @@ self.addEventListener("fetch", function (event) {
         return;
     }
 
-    if (request.mode === "navigate") {
-        event.respondWith(handleNavigationRequest(request));
+    if (url.origin !== self.location.origin) {
         return;
     }
 
-    if (API_CACHE_PATTERNS.some(function (pattern) { return pattern.test(url.href); })) {
-        event.respondWith(networkFirst(request));
+    if (request.mode === "navigate") {
+        event.respondWith(handleNavigationRequest(request));
         return;
     }
 
@@ -105,36 +99,6 @@ async function cacheFirst(request) {
         return new Response("Offline", {
             status: 503,
             statusText: "Offline"
-        });
-    }
-}
-
-async function networkFirst(request) {
-    const cache = await caches.open(RUNTIME_CACHE);
-
-    try {
-        const networkResponse = await fetch(request);
-
-        if (networkResponse && networkResponse.ok) {
-            cache.put(request, networkResponse.clone());
-        }
-
-        return networkResponse;
-    } catch (error) {
-        const cachedResponse = await cache.match(request);
-
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-
-        return new Response(JSON.stringify({
-            error: "Offline",
-            message: "No cached data available"
-        }), {
-            status: 503,
-            headers: {
-                "Content-Type": "application/json"
-            }
         });
     }
 }

@@ -233,6 +233,13 @@
             });
         }
 
+        if (runtime.stageRuntime.targetNodes) {
+            runtime.stageRuntime.targetNodes.forEach(function (node) {
+                node.remove();
+            });
+            runtime.stageRuntime.targetNodes.clear();
+        }
+
         runtime.stageRuntime = null;
     }
 
@@ -320,8 +327,21 @@
 
     class APIService {
         constructor() {
-            this.healthTipCache = safeLoad(storageKeys.tips, { remote: [] });
+            const storedTipCache = safeLoad(storageKeys.tips, {});
+
+            this.healthTipCache = {
+                remote: Array.isArray(storedTipCache.remote) ? storedTipCache.remote : [],
+                remoteUnavailableUntil: typeof storedTipCache.remoteUnavailableUntil === "number" ? storedTipCache.remoteUnavailableUntil : 0,
+                remoteLastError: storedTipCache.remoteLastError || null
+            };
             this.nutritionCache = safeLoad(storageKeys.nutrition, {});
+            this.remoteTipRequest = null;
+        }
+
+        markRemoteTipsUnavailable(errorMessage) {
+            this.healthTipCache.remoteUnavailableUntil = Date.now() + (6 * 60 * 60 * 1000);
+            this.healthTipCache.remoteLastError = errorMessage || "Unavailable";
+            safeSave(storageKeys.tips, this.healthTipCache);
         }
 
         async loadRemoteTips() {
@@ -329,35 +349,57 @@
                 return this.healthTipCache.remote;
             }
 
+            if (Date.now() < this.healthTipCache.remoteUnavailableUntil) {
+                return [];
+            }
+
             if (!window.navigator.onLine) {
                 return [];
             }
 
-            try {
-                const response = await window.fetch("https://health.gov/myhealthfinder/api/v3/topicsearch.json?lang=en");
-                const data = await response.json();
-                const resources = data && data.Result && data.Result.Resources && data.Result.Resources.Resource;
-
-                if (!Array.isArray(resources)) {
-                    return [];
-                }
-
-                const remoteTips = resources.slice(0, 18).map(function (resource) {
-                    return {
-                        title: resource.Title || "Health Tip",
-                        content: resource.Categories && resource.Categories.Category && resource.Categories.Category[0]
-                            ? resource.Categories.Category[0].Name + " recommendation from MyHealthfinder."
-                            : "Trusted public health guidance from MyHealthfinder.",
-                        source: "MyHealthfinder.gov"
-                    };
-                });
-
-                this.healthTipCache.remote = remoteTips;
-                safeSave(storageKeys.tips, this.healthTipCache);
-                return remoteTips;
-            } catch (error) {
-                return [];
+            if (this.remoteTipRequest) {
+                return this.remoteTipRequest;
             }
+
+            this.remoteTipRequest = (async () => {
+                try {
+                    const response = await window.fetch("https://health.gov/myhealthfinder/api/v3/topicsearch.json?lang=en");
+
+                    if (!response.ok) {
+                        throw new Error("MyHealthfinder request failed with status " + response.status);
+                    }
+
+                    const data = await response.json();
+                    const resources = data && data.Result && data.Result.Resources && data.Result.Resources.Resource;
+
+                    if (!Array.isArray(resources) || resources.length === 0) {
+                        throw new Error("MyHealthfinder returned no usable resources");
+                    }
+
+                    const remoteTips = resources.slice(0, 18).map(function (resource) {
+                        return {
+                            title: resource.Title || "Health Tip",
+                            content: resource.Categories && resource.Categories.Category && resource.Categories.Category[0]
+                                ? resource.Categories.Category[0].Name + " recommendation from MyHealthfinder."
+                                : "Trusted public health guidance from MyHealthfinder.",
+                            source: "MyHealthfinder.gov"
+                        };
+                    });
+
+                    this.healthTipCache.remote = remoteTips;
+                    this.healthTipCache.remoteUnavailableUntil = 0;
+                    this.healthTipCache.remoteLastError = null;
+                    safeSave(storageKeys.tips, this.healthTipCache);
+                    return remoteTips;
+                } catch (error) {
+                    this.markRemoteTipsUnavailable(error && error.message ? error.message : "MyHealthfinder unavailable");
+                    return [];
+                } finally {
+                    this.remoteTipRequest = null;
+                }
+            })();
+
+            return this.remoteTipRequest;
         }
 
         async getTip(topic) {
@@ -406,13 +448,13 @@
 
             try {
                 const response = await window.fetch(
-                    "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + encodeURIComponent(cacheKey) + "&search_simple=1&json=1&page_size=1",
-                    {
-                        headers: {
-                            "User-Agent": "HealthHeroAdventure/2.0"
-                        }
-                    }
+                    "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + encodeURIComponent(cacheKey) + "&search_simple=1&json=1&page_size=1"
                 );
+
+                if (!response.ok) {
+                    throw new Error("Open Food Facts request failed with status " + response.status);
+                }
+
                 const data = await response.json();
                 const product = data && data.products && data.products[0];
 
@@ -1129,6 +1171,7 @@
         ].join("");
 
         stageRuntime.playfield = document.getElementById("playfield");
+        stageRuntime.targetNodes = new Map();
         repaintActionTargets();
     }
 
@@ -1148,7 +1191,8 @@
             targets: new Map(),
             targetTimers: new Map(),
             spawnTimer: null,
-            playfield: null
+            playfield: null,
+            targetNodes: new Map()
         };
 
         renderAll();
@@ -1199,6 +1243,24 @@
         repaintActionTargets();
     }
 
+    function createActionTargetNode(target) {
+        const node = document.createElement("button");
+
+        node.type = "button";
+        node.className = "playfield-target " + (target.bad ? "bad" : "good");
+        node.dataset.stageAction = "hit-target";
+        node.dataset.targetId = target.id;
+        node.style.left = target.left + "px";
+        node.style.top = target.top + "px";
+        node.setAttribute("aria-label", target.item.label);
+        node.innerHTML = [
+            "<span class=\"target-emoji\">" + escapeHtml(target.item.emoji) + "</span>",
+            "<span class=\"target-label\">" + escapeHtml(target.item.label) + "</span>"
+        ].join("");
+
+        return node;
+    }
+
     function repaintActionTargets() {
         const stageRuntime = runtime.stageRuntime;
 
@@ -1206,16 +1268,24 @@
             return;
         }
 
-        stageRuntime.playfield.innerHTML = Array.from(stageRuntime.targets.values()).map(function (target) {
-            return [
-                "<button type=\"button\" class=\"playfield-target " + (target.bad ? "bad" : "good") + "\"",
-                " data-stage-action=\"hit-target\" data-target-id=\"" + escapeHtml(target.id) + "\"",
-                " style=\"left:" + target.left + "px;top:" + target.top + "px;\">",
-                "<span class=\"target-emoji\">" + escapeHtml(target.item.emoji) + "</span>",
-                "<span class=\"target-label\">" + escapeHtml(target.item.label) + "</span>",
-                "</button>"
-            ].join("");
-        }).join("");
+        stageRuntime.targets.forEach(function (target, targetId) {
+            if (stageRuntime.targetNodes.has(targetId)) {
+                return;
+            }
+
+            const node = createActionTargetNode(target);
+            stageRuntime.targetNodes.set(targetId, node);
+            stageRuntime.playfield.appendChild(node);
+        });
+
+        stageRuntime.targetNodes.forEach(function (node, targetId) {
+            if (stageRuntime.targets.has(targetId)) {
+                return;
+            }
+
+            node.remove();
+            stageRuntime.targetNodes.delete(targetId);
+        });
 
         updateActionStatusBar();
     }
@@ -1253,6 +1323,11 @@
         if (stageRuntime.targetTimers.has(targetId)) {
             window.clearTimeout(stageRuntime.targetTimers.get(targetId));
             stageRuntime.targetTimers.delete(targetId);
+        }
+
+        if (stageRuntime.targetNodes.has(targetId)) {
+            stageRuntime.targetNodes.get(targetId).remove();
+            stageRuntime.targetNodes.delete(targetId);
         }
 
         repaintActionTargets();
