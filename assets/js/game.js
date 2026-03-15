@@ -300,7 +300,7 @@
         runtime.dom.toastRegion.classList.add("toast-visible");
         runtime.toastTimer = window.setTimeout(function () {
             runtime.dom.toastRegion.classList.remove("toast-visible");
-        }, 1800);
+        }, 2800);
     }
 
     function renderTipCard(tip, emptyLabel) {
@@ -536,6 +536,13 @@
             }
         });
 
+        // Close help modal on Escape key
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && runtime.dom.helpModal.classList.contains("modal-open")) {
+                closeHelp();
+            }
+        });
+
         window.addEventListener("online", function () {
             runtime.dom.offlineIndicator.hidden = true;
         });
@@ -554,10 +561,7 @@
     function handleAction(action, node) {
         switch (action) {
         case "start-adventure":
-            if (state.checkpoint) {
-                game.resume();
-                return;
-            }
+            // Always start fresh from mission 1 — Resume Mission button handles checkpoint resuming
             game.startMission(content.missions[0].id);
             break;
         case "resume":
@@ -741,7 +745,12 @@
 
     function renderTopbar() {
         runtime.dom.topbarScore.textContent = String(getDisplayScore());
-        runtime.dom.topbarEnergy.textContent = state.energy === null ? "Study" : String(state.energy) + "/5";
+        // Only show energy/5 during action stages; otherwise show an em dash
+        if (state.energy !== null) {
+            runtime.dom.topbarEnergy.textContent = String(state.energy) + "/5";
+        } else {
+            runtime.dom.topbarEnergy.textContent = "\u2014";
+        }
         runtime.dom.topbarProgress.textContent = getTopbarProgressText();
         runtime.dom.offlineIndicator.hidden = window.navigator.onLine;
     }
@@ -780,10 +789,10 @@
         updateTipCard(runtime.dom.dashboardTipCard, state.dashboardTip, "Mission Fact");
         runtime.dom.dashboardTipCard.parentElement.classList.toggle("drawer-open", state.tipDrawerOpen);
 
-        const resumeButton = document.querySelector("[data-action=\"resume\"]");
-
-        if (resumeButton) {
-            resumeButton.disabled = !state.checkpoint;
+        // Show or hide the Resume Mission button (and its wrapper) based on checkpoint
+        const resumeWrapper = document.getElementById("resume-wrapper");
+        if (resumeWrapper) {
+            resumeWrapper.classList.toggle("hidden", !state.checkpoint);
         }
     }
 
@@ -1201,9 +1210,15 @@
             spawnActionTarget();
         }, config.spawnIntervalMs);
 
-        for (let initial = 0; initial < 4; initial += 1) {
-            spawnActionTarget();
-        }
+        // Use requestAnimationFrame so the playfield has been painted and
+        // getBoundingClientRect() returns real dimensions (not zero)
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+                for (var initial = 0; initial < 4; initial += 1) {
+                    spawnActionTarget();
+                }
+            });
+        });
     }
 
     function spawnActionTarget() {
@@ -1473,9 +1488,9 @@
 
         const selectedMarkup = runtime.stageRuntime.selectedIds.length > 0
             ? runtime.stageRuntime.selectedIds.map(function (stepId, index) {
-                return "<button type=\"button\" class=\"sequence-choice picked\" data-stage-action=\"remove-sequence-step\" data-step-id=\"" + escapeHtml(stepId) + "\">" + (index + 1) + ". " + escapeHtml(stepLookup[stepId].label) + "</button>";
+                return "<button type=\"button\" class=\"sequence-choice picked\" data-stage-action=\"remove-sequence-step\" data-step-id=\"" + escapeHtml(stepId) + "\" title=\"Click to remove this step\">" + (index + 1) + ". " + escapeHtml(stepLookup[stepId].label) + "</button>";
             }).join("")
-            : "<div class=\"empty-state\">Pick the first step to start the routine.</div>";
+            : "<div class=\"empty-state\">Pick the first step from the right to build your order.</div>";
 
         const availableMarkup = runtime.stageRuntime.availableIds.map(function (stepId) {
             return "<button type=\"button\" class=\"sequence-choice\" data-stage-action=\"choose-sequence-step\" data-step-id=\"" + escapeHtml(stepId) + "\">" + escapeHtml(stepLookup[stepId].label) + "</button>";
@@ -1998,6 +2013,7 @@
         const storedBest = Math.max(previousBest, state.currentMissionScore);
         const unlockedIndex = getMissionIndex(mission.id) + 1;
         const firstClear = !getBadgeEarned(mission);
+        const nextMission = content.missions[unlockedIndex] || null;
 
         state.bestScores[mission.id] = storedBest;
         state.score = state.baseScoreBeforeMission + storedBest;
@@ -2006,8 +2022,8 @@
             state.badges.push(mission.badge.id);
         }
 
-        if (content.missions[unlockedIndex]) {
-            state.unlockedMissionIds = Array.from(new Set(state.unlockedMissionIds.concat(content.missions[unlockedIndex].id)));
+        if (nextMission) {
+            state.unlockedMissionIds = Array.from(new Set(state.unlockedMissionIds.concat(nextMission.id)));
         }
 
         state.currentStageResult = {
@@ -2018,8 +2034,8 @@
             details: [
                 { label: "Mission score", value: String(state.currentMissionScore) },
                 { label: "Best mission score", value: String(storedBest) },
-                { label: "Badge earned", value: mission.badge.label },
-                { label: "Total best score", value: String(state.score) }
+                { label: "Badge earned", value: mission.badge.icon + " " + mission.badge.label },
+                { label: "Total score", value: String(state.score) }
             ],
             scoreDelta: state.currentMissionScore,
             passed: true,
@@ -2034,6 +2050,18 @@
         renderAll();
         saveProgress();
         refreshResultsTip(mission.topic);
+
+        // Celebrate badge and unlock
+        window.setTimeout(function () {
+            if (firstClear) {
+                showToast(mission.badge.icon + " Badge earned: " + mission.badge.label + "!");
+            }
+            if (nextMission) {
+                window.setTimeout(function () {
+                    showToast("\uD83D\uDD13 Mission unlocked: " + nextMission.title + "!");
+                }, 3200);
+            }
+        }, 400);
     }
 
     function presentFinalReport() {
