@@ -1,5 +1,5 @@
-const CACHE_NAME = "health-hero-v2.0.1";
-const RUNTIME_CACHE = "health-hero-runtime-v2.0.1";
+const CACHE_NAME = "health-hero-v3.0.0";
+const RUNTIME_CACHE = "health-hero-runtime-v3.0.0";
 
 const STATIC_ASSETS = [
     "./",

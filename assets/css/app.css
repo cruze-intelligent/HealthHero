@@ -769,6 +769,27 @@ button {
     color: rgba(13, 42, 56, 0.7);
 }
 
+.mission-learning-block {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--color-line);
+}
+
+.mission-objective-list,
+.lesson-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 8px;
+    color: rgba(13, 42, 56, 0.8);
+}
+
+.mission-objective-list li,
+.lesson-list li {
+    line-height: 1.5;
+}
+
 .mission-button {
     background: linear-gradient(155deg, var(--color-mango), var(--color-orange));
     color: var(--color-night);
@@ -815,6 +836,18 @@ button {
     min-height: 200px;
 }
 
+.lesson-panel,
+.coach-card {
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.64);
+    border: 1px solid var(--color-line);
+}
+
+.sidebar-lesson-panel {
+    margin-top: 2px;
+}
+
 /* Stage intro */
 .stage-intro,
 .learning-stage {
@@ -841,6 +874,16 @@ button {
 
 .objective-callout::before {
     content: "🎯 ";
+}
+
+.stage-prep-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.stage-prep-card {
+    min-width: 0;
 }
 
 /* Stage trail */
@@ -1109,6 +1152,7 @@ button {
 }
 
 .playfield-frame {
+    position: relative;
     border-radius: 24px;
     padding: 14px;
     background:
@@ -1127,6 +1171,59 @@ button {
         radial-gradient(circle at 85% 35%, rgba(34, 199, 240, 0.18), transparent 22%),
         radial-gradient(circle at 50% 80%, rgba(105, 179, 76, 0.1), transparent 22%),
         linear-gradient(175deg, rgba(255, 255, 255, 0.95), rgba(240, 250, 254, 0.98));
+}
+
+.playfield-overlay {
+    position: absolute;
+    inset: 24px;
+    display: grid;
+    place-content: center;
+    gap: 8px;
+    text-align: center;
+    border-radius: 20px;
+    background: rgba(6, 28, 41, 0.62);
+    color: white;
+    padding: 24px;
+    pointer-events: none;
+}
+
+.playfield-overlay.countdown {
+    background: rgba(6, 28, 41, 0.76);
+}
+
+.playfield-overlay.warmup {
+    background: linear-gradient(160deg, rgba(14, 116, 144, 0.84), rgba(34, 199, 240, 0.72));
+}
+
+.playfield-overlay.hidden {
+    display: none;
+}
+
+.overlay-badge {
+    margin: 0 auto;
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.34);
+}
+
+.overlay-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.overlay-copy {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.5;
 }
 
 .playfield-target {
@@ -1220,6 +1317,29 @@ button {
 
 .result-tip-shell .tip-body {
     background: rgba(255, 255, 255, 0.5);
+}
+
+.reward-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.reward-card {
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-line);
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.reward-card.badge {
+    background: linear-gradient(150deg, rgba(244, 185, 66, 0.2), rgba(255, 255, 255, 0.76));
+    border-color: rgba(244, 185, 66, 0.35);
+}
+
+.reward-card.unlock {
+    background: linear-gradient(150deg, rgba(34, 199, 240, 0.18), rgba(255, 255, 255, 0.76));
+    border-color: rgba(34, 199, 240, 0.32);
 }
 
 /* ============================================================
@@ -1462,6 +1582,11 @@ button {
         grid-template-columns: 1fr;
     }
 
+    .stage-prep-grid,
+    .reward-strip {
+        grid-template-columns: 1fr;
+    }
+
     .signal-grid,
     .plate-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1533,6 +1658,11 @@ button {
 
     .playfield {
         min-height: 320px;
+    }
+
+    .playfield-overlay {
+        inset: 18px;
+        padding: 18px;
     }
 
     .mission-map-grid {

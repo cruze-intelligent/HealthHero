@@ -6,9 +6,12 @@
     }
 
     const storageKeys = {
-        progress: "healthHeroProgress.v2",
+        progress: "healthHeroProgress.v3",
         tips: "healthTipsCache.v2",
         nutrition: "nutritionCache.v2"
+    };
+    const legacyStorageKeys = {
+        progress: "healthHeroProgress.v2"
     };
 
     const defaultState = {
@@ -16,7 +19,6 @@
         missionId: null,
         stageIndex: 0,
         stageMode: "intro",
-        score: 0,
         energy: null,
         soap: 0,
         misses: 0,
@@ -29,7 +31,6 @@
         checkpoint: null,
         currentMissionScore: 0,
         currentMissionStageScores: [],
-        baseScoreBeforeMission: 0,
         resultKind: null,
         dashboardTip: null,
         stageTip: null,
@@ -139,19 +140,28 @@
         return state.checkpoint;
     }
 
+    function getCommittedScore() {
+        return content.missions.reduce(function (total, mission) {
+            return total + (state.bestScores[mission.id] || 0);
+        }, 0);
+    }
+
+    function getMissionBaselineScore(missionId) {
+        return getCommittedScore() - (state.bestScores[missionId] || 0);
+    }
+
     function getDisplayScore() {
         if (
             state.missionId &&
             state.screen !== "dashboard" &&
             state.screen !== "map" &&
             state.resultKind !== "mission" &&
-            state.resultKind !== "final" &&
-            state.baseScoreBeforeMission >= 0
+            state.resultKind !== "final"
         ) {
-            return state.baseScoreBeforeMission + state.currentMissionScore;
+            return getMissionBaselineScore(state.missionId) + state.currentMissionScore;
         }
 
-        return state.score;
+        return getCommittedScore();
     }
 
     function getTopbarProgressText() {
@@ -163,6 +173,14 @@
             return "Mission Map";
         }
 
+        if (state.screen === "results" && state.resultKind === "final") {
+            return "Final Report";
+        }
+
+        if (state.screen === "results") {
+            return "Mission Report";
+        }
+
         const mission = getActiveMission();
 
         if (!mission) {
@@ -172,24 +190,162 @@
         return "Mission " + (getMissionIndex(mission.id) + 1) + " • Stage " + (state.stageIndex + 1) + "/" + mission.stages.length;
     }
 
-    function serializeProgress() {
+    function sanitizeUnlockedMissionIds(unlockedMissionIds) {
+        const validMissionIds = content.missions.map(function (mission) {
+            return mission.id;
+        });
+        const unlocked = (Array.isArray(unlockedMissionIds) ? unlockedMissionIds : []).filter(function (missionId) {
+            return validMissionIds.indexOf(missionId) > -1;
+        });
+
+        unlocked.unshift(content.missions[0].id);
+
+        return Array.from(new Set(unlocked));
+    }
+
+    function sanitizeBadges(badgeIds) {
+        const validBadgeIds = content.missions.map(function (mission) {
+            return mission.badge.id;
+        });
+
+        return Array.from(new Set((Array.isArray(badgeIds) ? badgeIds : []).filter(function (badgeId) {
+            return validBadgeIds.indexOf(badgeId) > -1;
+        })));
+    }
+
+    function sanitizeBestScores(bestScores) {
+        const sanitized = {};
+
+        content.missions.forEach(function (mission) {
+            const rawScore = bestScores && typeof bestScores[mission.id] === "number" ? bestScores[mission.id] : 0;
+            sanitized[mission.id] = Math.max(0, Math.floor(rawScore));
+        });
+
+        return sanitized;
+    }
+
+    function sanitizeCheckpoint(checkpoint) {
+        if (!checkpoint || !getMission(checkpoint.missionId)) {
+            return null;
+        }
+
+        const mission = getMission(checkpoint.missionId);
+        const stageIndex = clamp(typeof checkpoint.stageIndex === "number" ? checkpoint.stageIndex : 0, 0, mission.stages.length - 1);
+        const stageScores = Array.isArray(checkpoint.stageScores) ? checkpoint.stageScores.map(function (score) {
+            return typeof score === "number" ? Math.max(0, Math.floor(score)) : 0;
+        }).slice(0, mission.stages.length) : [];
+
         return {
-            screen: state.screen,
+            missionId: mission.id,
+            stageIndex: stageIndex,
+            stageMode: "intro",
+            currentMissionScore: typeof checkpoint.currentMissionScore === "number" ? Math.max(0, Math.floor(checkpoint.currentMissionScore)) : 0,
+            stageScores: stageScores
+        };
+    }
+
+    function sanitizeStageResult(result) {
+        if (!result || typeof result !== "object") {
+            return null;
+        }
+
+        if (result.missionId && !getMission(result.missionId)) {
+            return null;
+        }
+
+        return {
+            missionId: result.missionId || null,
+            stageId: result.stageId || null,
+            eyebrow: result.eyebrow || "Mission update",
+            title: result.title || "Mission update",
+            summary: result.summary || "",
+            details: Array.isArray(result.details) ? result.details.filter(function (detail) {
+                return detail && typeof detail.label === "string" && typeof detail.value === "string";
+            }).map(function (detail) {
+                return {
+                    label: detail.label,
+                    value: detail.value
+                };
+            }) : [],
+            scoreDelta: typeof result.scoreDelta === "number" ? result.scoreDelta : 0,
+            passed: Boolean(result.passed),
+            nutrition: Array.isArray(result.nutrition) ? result.nutrition : [],
+            isLastStage: Boolean(result.isLastStage),
+            takeaways: Array.isArray(result.takeaways) ? result.takeaways : [],
+            rewardHighlights: Array.isArray(result.rewardHighlights) ? result.rewardHighlights : []
+        };
+    }
+
+    function getPersistedScreen() {
+        if (state.screen === "stage") {
+            return state.checkpoint ? "stage" : "dashboard";
+        }
+
+        if (state.screen === "results" && state.resultKind === "final") {
+            return "final";
+        }
+
+        if (state.screen === "results" && state.currentStageResult) {
+            return "results";
+        }
+
+        if (state.screen === "map") {
+            return "map";
+        }
+
+        return "dashboard";
+    }
+
+    function buildCheckpoint(missionId, stageIndex) {
+        return {
+            missionId: missionId,
+            stageIndex: stageIndex,
+            stageMode: "intro",
+            currentMissionScore: state.currentMissionScore,
+            stageScores: state.currentMissionStageScores.slice()
+        };
+    }
+
+    function hydrateCheckpoint(checkpoint) {
+        const sanitizedCheckpoint = sanitizeCheckpoint(checkpoint);
+
+        if (!sanitizedCheckpoint) {
+            state.checkpoint = null;
+            return;
+        }
+
+        state.missionId = sanitizedCheckpoint.missionId;
+        state.stageIndex = sanitizedCheckpoint.stageIndex;
+        state.stageMode = "intro";
+        state.screen = "stage";
+        state.resultKind = null;
+        state.currentStageResult = null;
+        state.lastSelectedMission = sanitizedCheckpoint.missionId;
+        state.currentMissionScore = sanitizedCheckpoint.currentMissionScore;
+        state.currentMissionStageScores = sanitizedCheckpoint.stageScores.slice();
+        state.checkpoint = buildCheckpoint(sanitizedCheckpoint.missionId, sanitizedCheckpoint.stageIndex);
+        resetTransientMeters();
+    }
+
+    function serializeProgress() {
+        const persistedScreen = getPersistedScreen();
+
+        return {
+            version: 3,
+            screen: persistedScreen,
             missionId: state.missionId,
             stageIndex: state.stageIndex,
-            stageMode: state.stageMode,
-            score: state.score,
+            stageMode: state.stageMode === "play" ? "intro" : state.stageMode,
             badges: state.badges,
             unlockedMissionIds: state.unlockedMissionIds,
             bestScores: state.bestScores,
-            currentStageResult: state.currentStageResult,
+            currentStageResult: persistedScreen === "results" ? state.currentStageResult : null,
             lastSelectedMission: state.lastSelectedMission,
             hasSeenIntro: state.hasSeenIntro,
             checkpoint: state.checkpoint,
             currentMissionScore: state.currentMissionScore,
             currentMissionStageScores: state.currentMissionStageScores,
-            baseScoreBeforeMission: state.baseScoreBeforeMission,
-            resultKind: state.resultKind,
+            resultKind: persistedScreen === "results" ? state.resultKind : (persistedScreen === "final" ? "final" : null),
             tipDrawerOpen: state.tipDrawerOpen
         };
     }
@@ -199,23 +355,60 @@
     }
 
     function restoreProgress() {
-        const persisted = safeLoad(storageKeys.progress, null);
+        const persisted = safeLoad(storageKeys.progress, null) || safeLoad(legacyStorageKeys.progress, null);
 
         if (!persisted) {
             return;
         }
 
-        Object.keys(defaultState).forEach(function (key) {
-            if (Object.prototype.hasOwnProperty.call(persisted, key)) {
-                state[key] = persisted[key];
-            }
-        });
+        state.badges = sanitizeBadges(persisted.badges);
+        state.unlockedMissionIds = sanitizeUnlockedMissionIds(persisted.unlockedMissionIds);
+        state.bestScores = sanitizeBestScores(persisted.bestScores);
+        state.lastSelectedMission = getMission(persisted.lastSelectedMission) ? persisted.lastSelectedMission : null;
+        state.hasSeenIntro = Boolean(persisted.hasSeenIntro);
+        state.tipDrawerOpen = Boolean(persisted.tipDrawerOpen);
+        state.currentMissionScore = typeof persisted.currentMissionScore === "number" ? Math.max(0, Math.floor(persisted.currentMissionScore)) : 0;
+        state.currentMissionStageScores = Array.isArray(persisted.currentMissionStageScores) ? persisted.currentMissionStageScores.map(function (score) {
+            return typeof score === "number" ? Math.max(0, Math.floor(score)) : 0;
+        }) : [];
+        state.checkpoint = sanitizeCheckpoint(persisted.checkpoint);
+        state.currentStageResult = sanitizeStageResult(persisted.currentStageResult);
+        state.resultKind = persisted.resultKind === "stage" || persisted.resultKind === "mission" || persisted.resultKind === "final"
+            ? persisted.resultKind
+            : null;
 
-        state.unlockedMissionIds = Array.from(new Set(state.unlockedMissionIds.concat(content.missions[0].id)));
-        state.badges = Array.isArray(state.badges) ? state.badges : [];
-        state.bestScores = state.bestScores || {};
-        state.currentMissionStageScores = Array.isArray(state.currentMissionStageScores) ? state.currentMissionStageScores : [];
-        state.score = typeof state.score === "number" ? state.score : 0;
+        if (persisted.screen === "stage" && state.checkpoint) {
+            hydrateCheckpoint(state.checkpoint);
+            return;
+        }
+
+        if (persisted.screen === "results" && state.currentStageResult && (state.resultKind === "stage" || state.resultKind === "mission")) {
+            state.screen = "results";
+            state.missionId = state.currentStageResult.missionId || state.lastSelectedMission;
+            state.stageIndex = typeof persisted.stageIndex === "number" ? persisted.stageIndex : 0;
+            state.stageMode = "intro";
+            resetTransientMeters();
+            return;
+        }
+
+        if (persisted.screen === "final" && state.resultKind === "final") {
+            state.screen = "results";
+            state.currentStageResult = null;
+            state.missionId = state.lastSelectedMission || content.missions[content.missions.length - 1].id;
+            state.stageIndex = content.missions[content.missions.length - 1].stages.length - 1;
+            state.stageMode = "intro";
+            state.checkpoint = null;
+            resetTransientMeters();
+            return;
+        }
+
+        state.screen = persisted.screen === "map" ? "map" : "dashboard";
+        state.resultKind = null;
+        state.currentStageResult = null;
+        state.stageMode = "intro";
+        state.missionId = null;
+        state.stageIndex = 0;
+        resetTransientMeters();
     }
 
     function clearStageRuntime() {
@@ -225,6 +418,10 @@
 
         if (runtime.stageRuntime.spawnTimer) {
             window.clearInterval(runtime.stageRuntime.spawnTimer);
+        }
+
+        if (runtime.stageRuntime.overlayTimer) {
+            window.clearInterval(runtime.stageRuntime.overlayTimer);
         }
 
         if (runtime.stageRuntime.targetTimers) {
@@ -251,7 +448,6 @@
 
     function resetMissionState(options) {
         const missionId = options.missionId;
-        const previousBest = state.bestScores[missionId] || 0;
 
         state.missionId = missionId;
         state.stageIndex = options.stageIndex || 0;
@@ -260,22 +456,12 @@
         state.currentStageResult = null;
         state.lastSelectedMission = missionId;
         state.hasSeenIntro = true;
-        state.baseScoreBeforeMission = typeof options.baseScoreBeforeMission === "number"
-            ? options.baseScoreBeforeMission
-            : state.score - previousBest;
         state.currentMissionScore = typeof options.currentMissionScore === "number" ? options.currentMissionScore : 0;
         state.currentMissionStageScores = Array.isArray(options.stageScores) ? options.stageScores.slice() : [];
         state.screen = "stage";
         resetTransientMeters();
 
-        state.checkpoint = {
-            missionId: missionId,
-            stageIndex: state.stageIndex,
-            stageMode: "intro",
-            currentMissionScore: state.currentMissionScore,
-            stageScores: state.currentMissionStageScores.slice(),
-            baseScoreBeforeMission: state.baseScoreBeforeMission
-        };
+        state.checkpoint = buildCheckpoint(missionId, state.stageIndex);
     }
 
     function updateUrl(view) {
@@ -743,6 +929,70 @@
         });
     }
 
+    function buildChecklist(items, className) {
+        if (!items || items.length === 0) {
+            return "";
+        }
+
+        return "<ul class=\"" + escapeHtml(className) + "\">" + items.map(function (item) {
+            return "<li>" + escapeHtml(item) + "</li>";
+        }).join("") + "</ul>";
+    }
+
+    function buildRewardHighlights(highlights) {
+        if (!highlights || highlights.length === 0) {
+            return "";
+        }
+
+        return "<div class=\"reward-strip\">" + highlights.map(function (highlight) {
+            return [
+                "<div class=\"reward-card " + escapeHtml(highlight.tone || "default") + "\">",
+                "<p class=\"summary-label\">" + escapeHtml(highlight.label) + "</p>",
+                "<p class=\"summary-value\">" + escapeHtml(highlight.value) + "</p>",
+                "</div>"
+            ].join("");
+        }).join("") + "</div>";
+    }
+
+    function buildTakeawayPanel(title, items) {
+        if (!items || items.length === 0) {
+            return "";
+        }
+
+        return [
+            "<div class=\"lesson-panel\">",
+            "<p class=\"section-kicker\">" + escapeHtml(title) + "</p>",
+            buildChecklist(items, "lesson-list"),
+            "</div>"
+        ].join("");
+    }
+
+    function getStageRewardPreview(stage) {
+        const parts = [
+            "Pass to earn 100 points.",
+            "Perfect play adds 25 bonus points."
+        ];
+
+        if (stage.type === "action-targets") {
+            parts.push(stage.config.consumable === "soap"
+                ? "Fast, accurate play also keeps your energy and soap bonuses."
+                : "Fast, accurate play also keeps your energy bonus.");
+        }
+
+        return parts.join(" ");
+    }
+
+    function getStageTakeaways(stage, mission, passed) {
+        if (passed) {
+            return stage.coachCopy ? [stage.coachCopy].concat(mission.reportTakeaways.slice(0, 1)) : mission.reportTakeaways.slice(0, 2);
+        }
+
+        return [
+            stage.coachCopy || "Read the mission tip, then try the stage again.",
+            "Retrying helps the lesson stick."
+        ];
+    }
+
     function renderTopbar() {
         runtime.dom.topbarScore.textContent = String(getDisplayScore());
         // Only show energy/5 during action stages; otherwise show an em dash
@@ -756,10 +1006,10 @@
     }
 
     function renderDashboard() {
-        runtime.dom.dashboardCampaign.textContent = content.missions.length + " missions";
+        runtime.dom.dashboardCampaign.textContent = content.missions.length + " guided missions";
         runtime.dom.dashboardUnlocked.textContent = String(state.unlockedMissionIds.length);
         runtime.dom.dashboardBadges.textContent = String(state.badges.length);
-        runtime.dom.dashboardBestScore.textContent = String(state.score);
+        runtime.dom.dashboardBestScore.textContent = String(getCommittedScore());
 
         const nextMission = content.missions.find(function (mission) {
             return state.unlockedMissionIds.indexOf(mission.id) > -1 && !getBadgeEarned(mission);
@@ -767,12 +1017,13 @@
 
         const checkpointSummary = state.checkpoint
             ? "Resume " + getMission(state.checkpoint.missionId).title + " at stage " + (state.checkpoint.stageIndex + 1) + "."
-            : "No active checkpoint. Start the next mission when you are ready.";
+            : "No active checkpoint. Start " + nextMission.title + " when you are ready.";
 
         runtime.dom.dashboardProgressSummary.innerHTML = [
-            buildSummaryItem("Next focus", nextMission.title + " • " + nextMission.tagline),
-            buildSummaryItem("Resume", checkpointSummary),
-            buildSummaryItem("Best mission", getStrongestMissionLabel())
+            buildSummaryItem("Next mission", nextMission.title + " • " + nextMission.tagline),
+            buildSummaryItem("What you will practice", nextMission.learningObjectives.slice(0, 2).join(" ")),
+            buildSummaryItem("Checkpoint", checkpointSummary),
+            buildSummaryItem("Strongest mission", getStrongestMissionLabel())
         ].join("");
 
         runtime.dom.dashboardBadgeList.innerHTML = state.badges.length > 0
@@ -784,7 +1035,7 @@
                     "</div>"
                 ].join("");
             }).join("")
-            : "<div class=\"empty-state\">No badges yet. Finish a mission to earn your first one.</div>";
+            : "<div class=\"empty-state\">No badges yet. Finish a mission to unlock your first classroom-ready health badge.</div>";
 
         updateTipCard(runtime.dom.dashboardTipCard, state.dashboardTip, "Mission Fact");
         runtime.dom.dashboardTipCard.parentElement.classList.toggle("drawer-open", state.tipDrawerOpen);
@@ -842,6 +1093,7 @@
             const status = getMissionStatus(mission);
             const buttonDisabled = status === "locked" ? "disabled" : "";
             const bestScore = state.bestScores[mission.id] || 0;
+            const objectivePreview = buildChecklist(mission.learningObjectives.slice(0, 2), "mission-objective-list");
 
             return [
                 "<article class=\"mission-card " + escapeHtml(status) + "\">",
@@ -857,6 +1109,10 @@
                 "<span>Status: " + escapeHtml(status.replace("-", " ")) + "</span>",
                 "<span>Stages: " + mission.stages.length + "</span>",
                 "<span>Best: " + bestScore + "</span>",
+                "</div>",
+                "<div class=\"mission-learning-block\">",
+                "<p class=\"summary-label\">Skills in this mission</p>",
+                objectivePreview,
                 "</div>",
                 "<div class=\"mission-badge-line\">Badge: " + escapeHtml(mission.badge.icon + " " + mission.badge.label) + "</div>",
                 "<button type=\"button\" class=\"primary-button mission-button\" data-action=\"mission-cta\" data-mission-id=\"" + escapeHtml(mission.id) + "\" " + buttonDisabled + ">" + escapeHtml(getMissionButtonLabel(mission, status)) + "</button>",
@@ -890,6 +1146,10 @@
             "<div class=\"summary-item\">",
             "<p class=\"summary-label\">Mission badge</p>",
             "<p class=\"summary-value\">" + escapeHtml(mission.badge.icon + " " + mission.badge.label) + "</p>",
+            "</div>",
+            "<div class=\"lesson-panel sidebar-lesson-panel\">",
+            "<p class=\"summary-label\">Skills you will practice</p>",
+            buildChecklist(mission.learningObjectives, "lesson-list compact"),
             "</div>"
         ].join("");
 
@@ -905,7 +1165,13 @@
             "<p class=\"section-kicker\">" + escapeHtml(mission.title) + "</p>",
             "<h3 class=\"stage-headline\">" + escapeHtml(stage.title) + "</h3>",
             "<p class=\"stage-copy\">" + escapeHtml(stage.intro) + "</p>",
-            "<div class=\"objective-callout\">" + escapeHtml(stage.objective) + "</div>",
+            "<div class=\"stage-prep-grid\">",
+            "<div class=\"summary-item stage-prep-card\"><p class=\"summary-label\">Lesson goal</p><p class=\"summary-value\">" + escapeHtml(stage.intro) + "</p></div>",
+            "<div class=\"summary-item stage-prep-card\"><p class=\"summary-label\">Pass condition</p><p class=\"summary-value\">" + escapeHtml(stage.objective) + "</p></div>",
+            "<div class=\"summary-item stage-prep-card\"><p class=\"summary-label\">Reward preview</p><p class=\"summary-value\">" + escapeHtml(getStageRewardPreview(stage)) + "</p></div>",
+            "</div>",
+            stage.coachCopy ? "<div class=\"coach-card\"><p class=\"summary-label\">Coach note</p><p class=\"summary-value\">" + escapeHtml(stage.coachCopy) + "</p></div>" : "",
+            buildTakeawayPanel("What this mission teaches", mission.learningObjectives),
             "<div class=\"stage-trail\">",
             mission.stages.map(function (missionStage, index) {
                 const className = index === state.stageIndex ? "trail-step current" : index < state.stageIndex ? "trail-step done" : "trail-step";
@@ -967,6 +1233,8 @@
         const details = (result.details || []).map(function (detail) {
             return "<div class=\"summary-item\"><p class=\"summary-label\">" + escapeHtml(detail.label) + "</p><p class=\"summary-value\">" + escapeHtml(detail.value) + "</p></div>";
         }).join("");
+        const rewardHighlights = buildRewardHighlights(result.rewardHighlights);
+        const takeawayPanel = buildTakeawayPanel("What you learned", result.takeaways);
         const nutrition = result.nutrition && result.nutrition.length > 0
             ? "<div class=\"nutrition-stack\">" + result.nutrition.map(function (item) {
                 return "<div class=\"nutrition-item\"><strong>" + escapeHtml(item.name) + "</strong><span>" + escapeHtml("Calories: " + item.calories + " • Protein: " + item.protein + " • " + item.source) + "</span></div>";
@@ -980,7 +1248,9 @@
             "<p class=\"result-copy\">" + escapeHtml(result.summary) + "</p>",
             "<p class=\"result-score\">" + (result.passed ? "+" + result.scoreDelta : "0") + " points</p>",
             "</div>",
+            rewardHighlights,
             "<div class=\"summary-stack result-detail-grid\">" + details + "</div>",
+            takeawayPanel,
             nutrition,
             "<div class=\"result-tip-shell\">" + renderTipCard(state.resultsTip, "Mission Fact") + "</div>",
             "<div class=\"stage-actions\">" + buttons + "</div>"
@@ -1026,6 +1296,9 @@
 
     function renderFinalReport() {
         const strongestMission = getStrongestMission();
+        const campaignTakeaways = content.missions.map(function (mission) {
+            return mission.reportTakeaways[0];
+        });
         const missionCards = content.missions.map(function (mission) {
             return [
                 "<div class=\"report-card\">",
@@ -1048,13 +1321,18 @@
             "<p class=\"section-kicker\">Campaign Complete</p>",
             "<h3 class=\"result-title\">Healthy Habits Adventure complete</h3>",
             "<p class=\"result-copy\">You finished all four missions and built a stronger habit map for hygiene, nutrition, prevention, and wellness.</p>",
-            "<p class=\"result-score\">" + state.score + " total points</p>",
+            "<p class=\"result-score\">" + getCommittedScore() + " total points</p>",
             "</div>",
+            buildRewardHighlights([
+                { label: "Campaign badges", value: String(state.badges.length) + " of " + content.missions.length, tone: "badge" },
+                { label: "Strongest topic", value: strongestMission ? strongestMission.title : "No clear leader yet", tone: "unlock" }
+            ]),
             "<div class=\"summary-stack result-detail-grid\">",
             buildSummaryItem("Strongest topic", strongestMission ? strongestMission.title : "No clear leader yet"),
             buildSummaryItem("Badges earned", String(state.badges.length)),
             buildSummaryItem("Attribution", content.brandText),
             "</div>",
+            buildTakeawayPanel("Healthy habits to keep", campaignTakeaways),
             "<div class=\"report-grid\">" + missionCards + "</div>",
             "<div class=\"badge-grid final-badges\">" + badges + "</div>",
             "<div class=\"stage-actions\">",
@@ -1077,20 +1355,37 @@
         const url = new URL(window.location.href);
         const view = url.searchParams.get("view");
 
-        if (!view) {
-            if (state.screen === "stage" && state.checkpoint) {
-                resetMissionState({
-                    missionId: state.checkpoint.missionId,
-                    stageIndex: state.checkpoint.stageIndex,
-                    currentMissionScore: state.checkpoint.currentMissionScore,
-                    stageScores: state.checkpoint.stageScores,
-                    baseScoreBeforeMission: state.checkpoint.baseScoreBeforeMission
-                });
-            }
+        if (view === "play" && state.checkpoint) {
+            hydrateCheckpoint(state.checkpoint);
             return;
         }
 
-        game.handleShortcut(view);
+        if (view === "results" && state.currentStageResult && (state.resultKind === "stage" || state.resultKind === "mission")) {
+            state.screen = "results";
+            return;
+        }
+
+        if (view === "final" && state.resultKind === "final") {
+            state.screen = "results";
+            return;
+        }
+
+        if (state.screen === "stage" && state.checkpoint) {
+            hydrateCheckpoint(state.checkpoint);
+            return;
+        }
+
+        if (state.screen === "results" && (state.resultKind === "final" || state.currentStageResult)) {
+            return;
+        }
+
+        if (view === "map" && state.screen === "map") {
+            return;
+        }
+
+        if (state.screen !== "map") {
+            state.screen = "dashboard";
+        }
     }
 
     function startMissionFromCard(missionId) {
@@ -1101,8 +1396,7 @@
                 missionId: checkpoint.missionId,
                 stageIndex: checkpoint.stageIndex,
                 currentMissionScore: checkpoint.currentMissionScore,
-                stageScores: checkpoint.stageScores,
-                baseScoreBeforeMission: checkpoint.baseScoreBeforeMission
+                stageScores: checkpoint.stageScores
             });
             updateUrl("play");
             renderAll();
@@ -1122,14 +1416,7 @@
         }
 
         state.stageMode = "play";
-        state.checkpoint = {
-            missionId: state.missionId,
-            stageIndex: state.stageIndex,
-            stageMode: "intro",
-            currentMissionScore: state.currentMissionScore,
-            stageScores: state.currentMissionStageScores.slice(),
-            baseScoreBeforeMission: state.baseScoreBeforeMission
-        };
+        state.checkpoint = buildCheckpoint(state.missionId, state.stageIndex);
         saveProgress();
 
         switch (stage.type) {
@@ -1174,19 +1461,94 @@
             "</div>",
             "<div class=\"playfield-frame\">",
             "<div id=\"playfield\" class=\"playfield\"></div>",
+            "<div id=\"playfield-overlay\" class=\"playfield-overlay\"></div>",
             "</div>",
-            "<p class=\"screen-copy action-copy\">Collect the good targets. Missing them or tapping decoys costs energy.</p>",
+            "<p class=\"screen-copy action-copy\">Watch the countdown, then collect the good targets. During the warm-up window, mistakes do not cost energy.</p>",
             "</div>"
         ].join("");
 
         stageRuntime.playfield = document.getElementById("playfield");
+        stageRuntime.overlay = document.getElementById("playfield-overlay");
         stageRuntime.targetNodes = new Map();
+        updateActionOverlay();
         repaintActionTargets();
+    }
+
+    function updateActionOverlay() {
+        const stageRuntime = runtime.stageRuntime;
+
+        if (!stageRuntime || !stageRuntime.overlay) {
+            return;
+        }
+
+        if (!stageRuntime.live) {
+            const seconds = Math.max(1, Math.ceil((stageRuntime.countdownEndsAt - Date.now()) / 1000));
+
+            stageRuntime.overlay.hidden = false;
+            stageRuntime.overlay.className = "playfield-overlay countdown";
+            stageRuntime.overlay.innerHTML = [
+                "<div class=\"overlay-badge\">" + seconds + "</div>",
+                "<p class=\"overlay-title\">Get ready</p>",
+                "<p class=\"overlay-copy\">Targets go live when the countdown reaches GO.</p>"
+            ].join("");
+            return;
+        }
+
+        if (Date.now() < stageRuntime.safeUntil) {
+            const secondsLeft = Math.max(1, Math.ceil((stageRuntime.safeUntil - Date.now()) / 1000));
+
+            stageRuntime.overlay.hidden = false;
+            stageRuntime.overlay.className = "playfield-overlay warmup";
+            stageRuntime.overlay.innerHTML = [
+                "<div class=\"overlay-badge\">GO</div>",
+                "<p class=\"overlay-title\">Warm-up window</p>",
+                "<p class=\"overlay-copy\">You have " + secondsLeft + " more seconds where mistakes do not cost energy.</p>"
+            ].join("");
+            return;
+        }
+
+        stageRuntime.overlay.hidden = true;
+        stageRuntime.overlay.className = "playfield-overlay hidden";
+        stageRuntime.overlay.innerHTML = "";
+
+        if (stageRuntime.overlayTimer) {
+            window.clearInterval(stageRuntime.overlayTimer);
+            stageRuntime.overlayTimer = null;
+        }
+    }
+
+    function isActionPenaltyLive(stageRuntime) {
+        return stageRuntime && stageRuntime.live && Date.now() >= stageRuntime.safeUntil;
+    }
+
+    function activateActionStage() {
+        const stageRuntime = runtime.stageRuntime;
+
+        if (!stageRuntime || stageRuntime.live) {
+            return;
+        }
+
+        stageRuntime.live = true;
+        updateActionOverlay();
+        stageRuntime.spawnTimer = window.setInterval(function () {
+            spawnActionTarget();
+        }, stageRuntime.config.spawnIntervalMs);
+
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+                for (var initial = 0; initial < stageRuntime.config.initialSpawnCount; initial += 1) {
+                    spawnActionTarget();
+                }
+            });
+        });
     }
 
     function startActionStage(stage) {
         clearStageRuntime();
         const config = stage.config;
+        const startedAt = Date.now();
+        const countdownMs = config.countdownMs || 3000;
+        const safeStartMs = Math.max(config.safeStartMs || 6000, countdownMs);
 
         state.energy = config.startingEnergy;
         state.soap = config.startingSoap || 0;
@@ -1201,34 +1563,40 @@
             targetTimers: new Map(),
             spawnTimer: null,
             playfield: null,
-            targetNodes: new Map()
+            targetNodes: new Map(),
+            overlay: null,
+            overlayTimer: null,
+            startedAt: startedAt,
+            countdownEndsAt: startedAt + countdownMs,
+            safeUntil: startedAt + safeStartMs,
+            live: false,
+            lastWarmupToastAt: 0
         };
 
         renderAll();
+        runtime.stageRuntime.overlayTimer = window.setInterval(function () {
+            const activeRuntime = runtime.stageRuntime;
 
-        runtime.stageRuntime.spawnTimer = window.setInterval(function () {
-            spawnActionTarget();
-        }, config.spawnIntervalMs);
+            if (!activeRuntime) {
+                return;
+            }
 
-        // Use requestAnimationFrame so the playfield has been painted and
-        // getBoundingClientRect() returns real dimensions (not zero)
-        window.requestAnimationFrame(function () {
-            window.requestAnimationFrame(function () {
-                for (var initial = 0; initial < 4; initial += 1) {
-                    spawnActionTarget();
-                }
-            });
-        });
+            if (!activeRuntime.live && Date.now() >= activeRuntime.countdownEndsAt) {
+                activateActionStage();
+            }
+
+            updateActionOverlay();
+        }, 250);
     }
 
     function spawnActionTarget() {
         const stageRuntime = runtime.stageRuntime;
 
-        if (!stageRuntime || !stageRuntime.playfield) {
+        if (!stageRuntime || !stageRuntime.playfield || !stageRuntime.live) {
             return;
         }
 
-        if (stageRuntime.targets.size >= 8) {
+        if (stageRuntime.targets.size >= stageRuntime.config.maxActiveTargets) {
             return;
         }
 
@@ -1252,7 +1620,7 @@
 
         const timerId = window.setTimeout(function () {
             expireActionTarget(id);
-        }, stageRuntime.config.lifetimeMs);
+        }, Math.max(stageRuntime.config.lifetimeMs, Math.max(0, stageRuntime.safeUntil - Date.now()) + 800));
 
         stageRuntime.targetTimers.set(id, timerId);
         repaintActionTargets();
@@ -1356,6 +1724,14 @@
             return;
         }
 
+        if (!isActionPenaltyLive(stageRuntime)) {
+            if (Date.now() - stageRuntime.lastWarmupToastAt > 1400) {
+                showToast("Warm-up window: no penalty for that one.");
+                stageRuntime.lastWarmupToastAt = Date.now();
+            }
+            return;
+        }
+
         state.misses += 1;
         state.energy = clamp((state.energy || 0) - 1, 0, 5);
         showToast(reason);
@@ -1366,14 +1742,18 @@
                 passed: false,
                 eyebrow: "Stage failed",
                 title: getActiveStage().title,
-                summary: "Energy ran out before the goal was complete.",
+                summary: "You lost all 3 safety hearts before the clean-up goal was complete.",
                 details: [
                     { label: "Targets cleared", value: String(stageRuntime.hits) },
                     { label: "Misses", value: String(state.misses) },
                     { label: "Soap left", value: String(state.soap) }
                 ],
                 scoreDelta: 0,
-                nutrition: []
+                nutrition: [],
+                takeaways: [
+                    getActiveStage().coachCopy || "Wait for GO, then tap the helpful target only.",
+                    "Use the warm-up window to settle in before the penalties start."
+                ]
             });
         }
     }
@@ -1407,14 +1787,17 @@
                     passed: false,
                     eyebrow: "Stage failed",
                     title: getActiveStage().title,
-                    summary: "Soap ran out before the area was clean.",
+                    summary: "Your soap ran out before the area was clean.",
                     details: [
                         { label: "Targets cleared", value: String(stageRuntime.hits) },
                         { label: "Misses", value: String(state.misses) },
                         { label: "Soap left", value: String(state.soap) }
                     ],
                     scoreDelta: 0,
-                    nutrition: []
+                    nutrition: [],
+                    takeaways: [
+                        getActiveStage().coachCopy || "Tap only the real target so your supplies last longer."
+                    ]
                 });
                 return;
             }
@@ -1441,7 +1824,11 @@
                     { label: "Soap bonus", value: stageRuntime.config.consumable === "soap" ? String(state.soap * 5) : "0" }
                 ],
                 scoreDelta: scoreDelta,
-                nutrition: []
+                nutrition: [],
+                rewardHighlights: [
+                    { label: "Stage reward", value: "+" + scoreDelta + " points", tone: "badge" },
+                    { label: "Warm-up lesson", value: "You kept your cool and chose the right targets.", tone: "unlock" }
+                ]
             });
             return;
         }
@@ -1451,14 +1838,17 @@
                 passed: false,
                 eyebrow: "Stage failed",
                 title: getActiveStage().title,
-                summary: "Soap ran out before the remaining targets could be cleared.",
+                summary: "Your soap ran out before the remaining targets could be cleared.",
                 details: [
                     { label: "Targets cleared", value: String(stageRuntime.hits) },
                     { label: "Misses", value: String(state.misses) },
                     { label: "Soap left", value: "0" }
                 ],
                 scoreDelta: 0,
-                nutrition: []
+                nutrition: [],
+                takeaways: [
+                    getActiveStage().coachCopy || "Tap only the real target so your supplies last longer."
+                ]
             });
         }
     }
@@ -1938,35 +2328,25 @@
             scoreDelta: result.scoreDelta,
             passed: passed,
             nutrition: result.nutrition || [],
-            isLastStage: state.stageIndex === mission.stages.length - 1
+            isLastStage: state.stageIndex === mission.stages.length - 1,
+            takeaways: result.takeaways || getStageTakeaways(stage, mission, passed),
+            rewardHighlights: result.rewardHighlights || (passed
+                ? [{ label: "Stage reward", value: "+" + result.scoreDelta + " points", tone: "badge" }]
+                : [{ label: "Retry plan", value: "Read the coach note, then try the stage again.", tone: "default" }])
         };
         state.resultKind = "stage";
         state.screen = "results";
         resetTransientMeters();
 
         if (passed && state.stageIndex < mission.stages.length - 1) {
-            state.checkpoint = {
-                missionId: mission.id,
-                stageIndex: state.stageIndex + 1,
-                stageMode: "intro",
-                currentMissionScore: state.currentMissionScore,
-                stageScores: state.currentMissionStageScores.slice(),
-                baseScoreBeforeMission: state.baseScoreBeforeMission
-            };
+            state.checkpoint = buildCheckpoint(mission.id, state.stageIndex + 1);
         } else if (!passed) {
-            state.checkpoint = {
-                missionId: mission.id,
-                stageIndex: state.stageIndex,
-                stageMode: "intro",
-                currentMissionScore: state.currentMissionScore,
-                stageScores: state.currentMissionStageScores.slice(),
-                baseScoreBeforeMission: state.baseScoreBeforeMission
-            };
+            state.checkpoint = buildCheckpoint(mission.id, state.stageIndex);
         } else {
             state.checkpoint = null;
         }
 
-        updateUrl("play");
+        updateUrl("results");
         renderAll();
         saveProgress();
         refreshResultsTip(mission.topic);
@@ -1993,14 +2373,7 @@
         state.currentStageResult = null;
         state.resultKind = null;
         resetTransientMeters();
-        state.checkpoint = {
-            missionId: state.missionId,
-            stageIndex: state.stageIndex,
-            stageMode: "intro",
-            currentMissionScore: state.currentMissionScore,
-            stageScores: state.currentMissionStageScores.slice(),
-            baseScoreBeforeMission: state.baseScoreBeforeMission
-        };
+        state.checkpoint = buildCheckpoint(state.missionId, state.stageIndex);
         updateUrl("play");
         renderAll();
         saveProgress();
@@ -2014,9 +2387,9 @@
         const unlockedIndex = getMissionIndex(mission.id) + 1;
         const firstClear = !getBadgeEarned(mission);
         const nextMission = content.missions[unlockedIndex] || null;
+        const badgeLabel = mission.badge.icon + " " + mission.badge.label;
 
         state.bestScores[mission.id] = storedBest;
-        state.score = state.baseScoreBeforeMission + storedBest;
 
         if (firstClear) {
             state.badges.push(mission.badge.id);
@@ -2030,23 +2403,38 @@
             missionId: mission.id,
             eyebrow: "Mission complete",
             title: mission.title,
-            summary: "Mission score recorded. " + (storedBest > previousBest ? "New best score saved." : "Best score held steady."),
+            summary: storedBest > previousBest
+                ? "Mission complete. Your new best score is now saved."
+                : "Mission complete. Your best score stays on the board.",
             details: [
                 { label: "Mission score", value: String(state.currentMissionScore) },
                 { label: "Best mission score", value: String(storedBest) },
-                { label: "Badge earned", value: mission.badge.icon + " " + mission.badge.label },
-                { label: "Total score", value: String(state.score) }
+                { label: "Badge", value: badgeLabel },
+                { label: "Total score", value: String(getCommittedScore()) }
             ],
             scoreDelta: state.currentMissionScore,
             passed: true,
-            nutrition: []
+            nutrition: [],
+            takeaways: mission.reportTakeaways,
+            rewardHighlights: [
+                {
+                    label: firstClear ? "Badge earned" : "Badge kept",
+                    value: badgeLabel,
+                    tone: "badge"
+                },
+                {
+                    label: nextMission ? "Mission unlocked" : "Campaign status",
+                    value: nextMission ? nextMission.icon + " " + nextMission.title + " is now ready to play." : "All missions are complete. Open the final report next.",
+                    tone: "unlock"
+                }
+            ]
         };
         state.resultKind = "mission";
         state.screen = "results";
         state.lastSelectedMission = mission.id;
         state.checkpoint = null;
         resetTransientMeters();
-        updateUrl("play");
+        updateUrl("results");
         renderAll();
         saveProgress();
         refreshResultsTip(mission.topic);
@@ -2070,8 +2458,9 @@
         state.screen = "results";
         state.currentStageResult = null;
         state.checkpoint = null;
+        state.lastSelectedMission = content.missions[content.missions.length - 1].id;
         resetTransientMeters();
-        updateUrl("play");
+        updateUrl("final");
         renderAll();
         saveProgress();
     }
@@ -2083,7 +2472,6 @@
         state.stageMode = "intro";
         state.currentMissionScore = 0;
         state.currentMissionStageScores = [];
-        state.baseScoreBeforeMission = state.score;
         state.currentStageResult = null;
         state.resultKind = null;
         state.checkpoint = null;
@@ -2121,8 +2509,10 @@
             renderAll();
             refreshDashboardTip(false);
 
-            if (state.missionId) {
+            if (state.screen === "stage" && state.missionId) {
                 refreshStageTip();
+            } else if (state.screen === "results" && state.missionId && state.resultKind !== "final") {
+                refreshResultsTip(getMission(state.missionId).topic);
             }
 
             window.setTimeout(function () {
@@ -2140,8 +2530,7 @@
                 missionId: missionId,
                 stageIndex: 0,
                 currentMissionScore: 0,
-                stageScores: [],
-                baseScoreBeforeMission: state.score - (state.bestScores[missionId] || 0)
+                stageScores: []
             });
             updateUrl("play");
             renderAll();
@@ -2150,7 +2539,6 @@
         },
         resume: function () {
             if (!state.checkpoint) {
-                this.startMission(content.missions[0].id);
                 return;
             }
 
@@ -2159,8 +2547,7 @@
                 missionId: state.checkpoint.missionId,
                 stageIndex: state.checkpoint.stageIndex,
                 currentMissionScore: state.checkpoint.currentMissionScore,
-                stageScores: state.checkpoint.stageScores,
-                baseScoreBeforeMission: state.checkpoint.baseScoreBeforeMission
+                stageScores: state.checkpoint.stageScores
             });
             updateUrl("play");
             renderAll();
@@ -2177,14 +2564,7 @@
             state.stageMode = "intro";
             state.resultKind = null;
             state.currentStageResult = null;
-            state.checkpoint = {
-                missionId: state.missionId,
-                stageIndex: state.stageIndex,
-                stageMode: "intro",
-                currentMissionScore: state.currentMissionScore,
-                stageScores: state.currentMissionStageScores.slice(),
-                baseScoreBeforeMission: state.baseScoreBeforeMission
-            };
+            state.checkpoint = buildCheckpoint(state.missionId, state.stageIndex);
             resetTransientMeters();
             updateUrl("play");
             renderAll();
@@ -2202,8 +2582,6 @@
             if (view === "play") {
                 if (state.checkpoint) {
                     this.resume();
-                } else {
-                    this.startMission(content.missions[0].id);
                 }
                 return;
             }
@@ -2211,6 +2589,23 @@
             if (view === "map") {
                 clearStageRuntime();
                 state.screen = "map";
+                updateUrl("map");
+                renderAll();
+                saveProgress();
+                return;
+            }
+
+            if (view === "results" && state.currentStageResult) {
+                state.screen = "results";
+                updateUrl("results");
+                renderAll();
+                saveProgress();
+                return;
+            }
+
+            if (view === "final" && state.resultKind === "final") {
+                state.screen = "results";
+                updateUrl("final");
                 renderAll();
                 saveProgress();
                 return;
@@ -2219,6 +2614,7 @@
             if (view === "tips") {
                 state.screen = "dashboard";
                 state.tipDrawerOpen = true;
+                updateUrl("start");
                 renderAll();
                 saveProgress();
                 return;
@@ -2226,6 +2622,7 @@
 
             clearStageRuntime();
             state.screen = "dashboard";
+            updateUrl("start");
             renderAll();
             saveProgress();
         }

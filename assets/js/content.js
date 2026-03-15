@@ -351,7 +351,7 @@
         washHands: {
             title: "Wash-Up Order",
             prompt: "Tap the steps in the best order for clean hands.",
-            passAt: 5,
+            passAt: 4,
             steps: [
                 { id: "wet", label: "Wet your hands with clean water." },
                 { id: "soap", label: "Apply soap." },
@@ -364,7 +364,7 @@
         dailyRoutine: {
             title: "Daily Routine Builder",
             prompt: "Build a steady routine from wake-up to sleep.",
-            passAt: 5,
+            passAt: 4,
             steps: [
                 { id: "wake", label: "Wake up and freshen up." },
                 { id: "breakfast", label: "Eat breakfast and drink water." },
@@ -471,6 +471,16 @@
             topic: "hygiene",
             accent: "teal",
             tagline: "Stop slippery germs and lock in clean-hand habits.",
+            learningObjectives: [
+                "Know when to wash hands with soap.",
+                "Practice the full order of strong handwashing.",
+                "Explain how clean hands block the spread of germs."
+            ],
+            reportTakeaways: [
+                "Soap and a full 20-second scrub help lift dirt and germs away.",
+                "Key times to wash are before eating, after the toilet, and after messy play.",
+                "Clean hands protect you and the people around you."
+            ],
             badge: {
                 id: "soap-defender",
                 icon: "🫧",
@@ -483,15 +493,20 @@
                     type: "action-targets",
                     intro: "Tap the roaming germs with your soap supply before they overwhelm the zone.",
                     objective: "Clear 12 germs before 3 misses or your soap supply runs out.",
+                    coachCopy: "Wait for the countdown, then tap only the germs. Skip the decoys and keep your soap for the real mess.",
                     config: {
                         goal: 12,
                         spawnIntervalMs: 800,
-                        lifetimeMs: 1800,
+                        lifetimeMs: 2600,
                         maxMisses: 3,
                         startingEnergy: 5,
                         startingSoap: 18,
                         consumable: "soap",
                         badChance: 0.25,
+                        countdownMs: 3000,
+                        initialSpawnCount: 2,
+                        maxActiveTargets: 6,
+                        safeStartMs: 6000,
                         goodItems: [
                             { emoji: "🦠", label: "Germ" },
                             { emoji: "🧫", label: "Bacteria blob" },
@@ -508,7 +523,8 @@
                     title: "Wash-Up Order",
                     type: "sequence",
                     intro: "Build the correct handwashing routine from first step to finish.",
-                    objective: "Place the six steps in the best order. Reach at least 5 correct positions to pass.",
+                    objective: "Place the six steps in the best order. Reach at least 4 correct positions to pass.",
+                    coachCopy: "Think from start to finish: water first, soap next, scrub well, then rinse and dry.",
                     challengeId: "washHands"
                 },
                 {
@@ -517,6 +533,7 @@
                     type: "quiz",
                     intro: "Finish the mission with a quick hygiene knowledge check.",
                     objective: "Answer 3 questions. Score at least 2 correct to pass.",
+                    coachCopy: "Use what you just practiced. The safest hygiene habits are also the easiest to repeat every day.",
                     topic: "hygiene",
                     questionCount: 3,
                     passAt: 2
@@ -530,6 +547,16 @@
             topic: "nutrition",
             accent: "leaf",
             tagline: "Build balanced meals and sort everyday fuel from sometimes treats.",
+            learningObjectives: [
+                "Build a balanced plate from key food groups.",
+                "Spot everyday fuel and sometimes treats.",
+                "Choose food and drink that support energy and growth."
+            ],
+            reportTakeaways: [
+                "Balanced meals mix foods that help your body grow, think, and stay active.",
+                "Water is a strong everyday drink choice.",
+                "Treat foods fit best sometimes, not as your main fuel."
+            ],
             badge: {
                 id: "plate-planner",
                 icon: "🥗",
@@ -542,6 +569,7 @@
                     type: "plate",
                     intro: "Choose four foods that work together as a smart, balanced plate.",
                     objective: "Pick exactly 4 foods and cover fruit, vegetable, protein, and grain or dairy.",
+                    coachCopy: "A strong plate mixes color, body-building foods, and steady energy foods.",
                     picks: 4,
                     requirements: [
                         { label: "Fruit", groups: ["fruit"] },
@@ -556,6 +584,7 @@
                     type: "sort",
                     intro: "Sort foods into the right habit lane.",
                     objective: "Sort 10 foods. Get at least 7 correct to pass.",
+                    coachCopy: "Everyday foods help your body often. Sometimes foods are fine once in a while, but not all the time.",
                     challengeId: "everydayVsSometimes"
                 },
                 {
@@ -564,6 +593,7 @@
                     type: "quiz",
                     intro: "Show what you know about strong food choices.",
                     objective: "Answer 3 questions. Score at least 2 correct to pass.",
+                    coachCopy: "Look for the choices that give steady energy, useful nutrients, and good daily habits.",
                     topic: "nutrition",
                     questionCount: 3,
                     passAt: 2
@@ -577,6 +607,16 @@
             topic: "prevention",
             accent: "orange",
             tagline: "Spot safer choices before hazards spread.",
+            learningObjectives: [
+                "Choose safer actions in common health situations.",
+                "Recognize items and habits that help prevent illness.",
+                "Explain simple ways to protect yourself and others."
+            ],
+            reportTakeaways: [
+                "Safe water, clean hands, and covered coughs lower the spread of illness.",
+                "Small protective habits matter before a problem grows.",
+                "Using your own clean items can help stop germs from traveling."
+            ],
             badge: {
                 id: "risk-radar",
                 icon: "🛡️",
@@ -589,6 +629,7 @@
                     type: "scenario",
                     intro: "Work through everyday health situations and choose the safer move.",
                     objective: "Solve 6 scenarios and get at least 5 right to pass.",
+                    coachCopy: "Pause, spot the risk, then choose the action that keeps germs and hazards away.",
                     challengeId: "preventionPatrol"
                 },
                 {
@@ -597,15 +638,20 @@
                     type: "action-targets",
                     intro: "Tap safe items quickly and avoid the risky ones.",
                     objective: "Collect 10 safe items before 3 mistakes.",
+                    coachCopy: "Wait for GO, then grab the helpful health items and leave the risky ones alone.",
                     config: {
                         goal: 10,
                         spawnIntervalMs: 900,
-                        lifetimeMs: 1900,
+                        lifetimeMs: 2700,
                         maxMisses: 3,
                         startingEnergy: 5,
                         startingSoap: 0,
                         consumable: null,
                         badChance: 0.35,
+                        countdownMs: 3000,
+                        initialSpawnCount: 2,
+                        maxActiveTargets: 6,
+                        safeStartMs: 6000,
                         goodItems: [
                             { emoji: "🧼", label: "Soap" },
                             { emoji: "🚰", label: "Clean water" },
@@ -624,6 +670,7 @@
                     type: "quiz",
                     intro: "Lock in the best ways to block illness spread.",
                     objective: "Answer 3 questions. Score at least 2 correct to pass.",
+                    coachCopy: "Choose the habits that protect health before germs have a chance to spread.",
                     topic: "prevention",
                     questionCount: 3,
                     passAt: 2
@@ -637,6 +684,16 @@
             topic: "wellness",
             accent: "sky",
             tagline: "Balance sleep, movement, water, and routine for strong energy.",
+            learningObjectives: [
+                "Build a healthy daily routine from morning to bedtime.",
+                "Choose habits that support energy, focus, and mood.",
+                "Connect sleep, hydration, food, and movement to wellness."
+            ],
+            reportTakeaways: [
+                "Daily routines make healthy choices easier to repeat.",
+                "Water, movement, and rest help your body and brain stay ready.",
+                "Small daily habits work together to build long-term wellness."
+            ],
             badge: {
                 id: "rhythm-runner",
                 icon: "⚡",
@@ -648,7 +705,8 @@
                     title: "Daily Routine Builder",
                     type: "sequence",
                     intro: "Lay out the strongest order for a healthy day.",
-                    objective: "Place the six routine steps in order. Reach at least 5 correct positions to pass.",
+                    objective: "Place the six routine steps in order. Reach at least 4 correct positions to pass.",
+                    coachCopy: "Healthy days work best with a steady rhythm: fuel up, learn, move, and rest.",
                     challengeId: "dailyRoutine"
                 },
                 {
@@ -657,15 +715,20 @@
                     type: "action-targets",
                     intro: "Grab water and healthy boosts while dodging the energy drainers.",
                     objective: "Collect 12 good items before 3 mistakes.",
+                    coachCopy: "Wait for the countdown, then choose the habits that refill your energy instead of draining it.",
                     config: {
                         goal: 12,
                         spawnIntervalMs: 780,
-                        lifetimeMs: 1750,
+                        lifetimeMs: 2500,
                         maxMisses: 3,
                         startingEnergy: 5,
                         startingSoap: 0,
                         consumable: null,
                         badChance: 0.3,
+                        countdownMs: 3000,
+                        initialSpawnCount: 2,
+                        maxActiveTargets: 6,
+                        safeStartMs: 6000,
                         goodItems: [
                             { emoji: "💧", label: "Water" },
                             { emoji: "😴", label: "Rest boost" },
@@ -684,6 +747,7 @@
                     type: "quiz",
                     intro: "Finish the campaign by proving your daily wellness knowledge.",
                     objective: "Answer 3 questions. Score at least 2 correct to pass.",
+                    coachCopy: "Think about the daily habits that help you feel ready to learn, play, and rest well.",
                     topic: "wellness",
                     questionCount: 3,
                     passAt: 2
