@@ -121,6 +121,33 @@ button {
     font-size: 1.05rem;
 }
 
+.loading-progress-shell {
+    width: min(320px, 78vw);
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.loading-progress-bar {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--color-mango), var(--color-orange), var(--color-sky));
+    box-shadow: 0 0 18px rgba(244, 185, 66, 0.38);
+    transition: width 0.35s ease;
+}
+
+.loading-stage {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
 /* ============================================================
    OFFLINE INDICATOR
    ============================================================ */
@@ -230,6 +257,11 @@ button {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.timer-chip {
+    background: rgba(244, 185, 66, 0.16);
+    border-color: rgba(249, 115, 22, 0.28);
 }
 
 .status-chip span {
@@ -1342,6 +1374,29 @@ button {
     border-color: rgba(34, 199, 240, 0.32);
 }
 
+.recovery-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.recovery-card {
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-line);
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.recovery-card.retry {
+    background: linear-gradient(150deg, rgba(34, 199, 240, 0.16), rgba(255, 255, 255, 0.76));
+    border-color: rgba(34, 199, 240, 0.32);
+}
+
+.recovery-card.exit {
+    background: linear-gradient(150deg, rgba(217, 93, 57, 0.08), rgba(255, 255, 255, 0.76));
+    border-color: rgba(217, 93, 57, 0.22);
+}
+
 /* ============================================================
    NUTRITION INFO
    ============================================================ */
@@ -1578,7 +1633,8 @@ button {
     .sort-grid,
     .help-grid,
     .report-grid,
-    .result-detail-grid {
+    .result-detail-grid,
+    .recovery-grid {
         grid-template-columns: 1fr;
     }
 

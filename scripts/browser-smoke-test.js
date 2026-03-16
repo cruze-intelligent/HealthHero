@@ -51,6 +51,7 @@ const HELPER_SOURCE = String.raw`
                     title: result.title,
                     scoreDelta: result.scoreDelta
                 } : null,
+                actionTime: document.getElementById("action-time") ? document.getElementById("action-time").textContent : "",
                 displayScore: document.getElementById("topbar-score") ? Number(document.getElementById("topbar-score").textContent) : null,
                 progressText: document.getElementById("topbar-progress") ? document.getElementById("topbar-progress").textContent : ""
             };
@@ -150,8 +151,28 @@ const HELPER_SOURCE = String.raw`
 
             return this.state();
         },
+        async failActionStage() {
+            const stage = this.getActiveStage();
+
+            await sleep((stage.config.safeStartMs || 4800) + 350);
+
+            for (let i = 0; i < 40 && window.HealthHeroGame.state.screen === "stage"; i += 1) {
+                const badTarget = document.querySelector(".playfield-target.bad");
+
+                if (badTarget) {
+                    badTarget.click();
+                    await sleep(200);
+                    continue;
+                }
+
+                await sleep(80);
+            }
+
+            return this.waitForStageToFinish(5000);
+        },
         async playAction(perfect) {
             const stage = this.getActiveStage();
+            const maxLoops = Math.ceil(((stage.config.durationMs || 30000) + 8000) / 50);
 
             if (!perfect) {
                 await sleep((stage.config.safeStartMs || 6000) + 300);
@@ -168,7 +189,7 @@ const HELPER_SOURCE = String.raw`
                 }
             }
 
-            for (let i = 0; i < 500 && window.HealthHeroGame.state.screen === "stage"; i += 1) {
+            for (let i = 0; i < maxLoops && window.HealthHeroGame.state.screen === "stage"; i += 1) {
                 document.querySelectorAll(".playfield-target.good").forEach((node) => node.click());
                 await sleep(50);
             }
@@ -547,6 +568,8 @@ async function run() {
     const browser = spawn(chromeBinary, [
         "--headless=new",
         "--disable-gpu",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
         "--remote-debugging-port=" + DEVTOOLS_PORT,
         "--user-data-dir=" + USER_DATA_DIR,
         "about:blank"
@@ -580,16 +603,18 @@ async function run() {
         await installHelpers(session);
         await clearSavedState(session);
 
-        log("Checking action-stage safe-start window...");
+        log("Checking action-stage countdown and failure path...");
         let snapshot = await helper(session, "startAdventure");
         assert(snapshot.screen === "stage" && snapshot.stageMode === "intro", "Start Adventure should open Mission 1 intro.", snapshot);
 
-        await helper(session, "beginStage");
-        snapshot = await helper(session, "idle", 5500);
-        assert(snapshot.screen === "stage", "Mission 1 should still be active before the 6-second safe-start window ends.", snapshot);
+        snapshot = await helper(session, "beginStage");
+        assert(snapshot.screen === "stage" && snapshot.stageMode === "play" && snapshot.actionTime.includes(":"), "Mission 1 should show a live countdown timer when the action stage begins.", snapshot);
 
-        snapshot = await helper(session, "idle", 3500);
-        assert(snapshot.screen === "results" && snapshot.resultKind === "stage" && snapshot.currentStageResult && !snapshot.currentStageResult.passed, "Idling long enough should eventually fail the stage after the safe window.", snapshot);
+        snapshot = await helper(session, "idle", 1500);
+        assert(snapshot.screen === "stage", "Mission 1 should stay active during the opening countdown and warm-up.", snapshot);
+
+        snapshot = await helper(session, "failActionStage");
+        assert(snapshot.screen === "results" && snapshot.resultKind === "stage" && snapshot.currentStageResult && !snapshot.currentStageResult.passed, "Deliberately missing the first action stage should open the failure result card.", snapshot);
 
         log("Checking retry behavior...");
         snapshot = await helper(session, "retryStage");

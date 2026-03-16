@@ -46,6 +46,7 @@
         installPrompt: null,
         stageRuntime: null,
         loadingDone: false,
+        loadingStartedAt: 0,
         toastTimer: null,
         tipToken: 0
     };
@@ -491,7 +492,13 @@
 
     function renderTipCard(tip, emptyLabel) {
         if (!tip) {
-            return "<div class=\"tip-body\"><p class=\"tip-title\">" + escapeHtml(emptyLabel) + "</p><p class=\"tip-content\">Loading a health fact...</p></div>";
+            return [
+                "<div class=\"tip-loading\" aria-label=\"Loading health fact\">",
+                "<div class=\"tip-loading-bar short\"></div>",
+                "<div class=\"tip-loading-bar\"></div>",
+                "<div class=\"tip-loading-bar short\"></div>",
+                "</div>"
+            ].join("");
         }
 
         return [
@@ -680,6 +687,9 @@
         runtime.dom.stageScreen = document.getElementById("stage-screen");
         runtime.dom.resultsScreen = document.getElementById("results-screen");
         runtime.dom.loadingScreen = document.getElementById("loading-screen");
+        runtime.dom.loadingCopy = document.getElementById("loading-copy");
+        runtime.dom.loadingStage = document.getElementById("loading-stage");
+        runtime.dom.loadingProgressBar = document.getElementById("loading-progress-bar");
         runtime.dom.offlineIndicator = document.getElementById("offline-indicator");
         runtime.dom.helpModal = document.getElementById("help-modal");
         runtime.dom.toastRegion = document.getElementById("toast-region");
@@ -699,6 +709,31 @@
         runtime.dom.stageMeta = document.getElementById("stage-meta");
         runtime.dom.stageTipCard = document.getElementById("stage-tip-card");
         runtime.dom.resultsPanel = document.getElementById("results-panel");
+    }
+
+    function setLoadingState(copy, detail, progress) {
+        if (runtime.dom.loadingCopy && typeof copy === "string") {
+            runtime.dom.loadingCopy.textContent = copy;
+        }
+
+        if (runtime.dom.loadingStage && typeof detail === "string") {
+            runtime.dom.loadingStage.textContent = detail;
+        }
+
+        if (runtime.dom.loadingProgressBar && typeof progress === "number") {
+            runtime.dom.loadingProgressBar.style.width = clamp(progress, 0, 100) + "%";
+        }
+    }
+
+    function hideLoadingScreen() {
+        const elapsed = Date.now() - runtime.loadingStartedAt;
+        const delay = Math.max(0, 950 - elapsed);
+
+        window.setTimeout(function () {
+            runtime.loadingDone = true;
+            setLoadingState("Ready to play.", "Mission control is live.", 100);
+            runtime.dom.loadingScreen.classList.add("hidden");
+        }, delay);
     }
 
     function bindEvents() {
@@ -967,6 +1002,77 @@
         ].join("");
     }
 
+    function formatDurationClock(milliseconds) {
+        const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+
+        return String(minutes) + ":" + String(seconds).padStart(2, "0");
+    }
+
+    function getActionDurationMs(stageOrRuntime) {
+        if (!stageOrRuntime) {
+            return 30000;
+        }
+
+        if (stageOrRuntime.config && typeof stageOrRuntime.config.durationMs === "number") {
+            return stageOrRuntime.config.durationMs;
+        }
+
+        if (typeof stageOrRuntime.durationMs === "number") {
+            return stageOrRuntime.durationMs;
+        }
+
+        return 30000;
+    }
+
+    function getStageHowToPlay(stage) {
+        if (!stage) {
+            return [];
+        }
+
+        switch (stage.type) {
+        case "action-targets":
+            return [
+                "Wait for the countdown, then start tapping only the correct targets when GO appears.",
+                "Beat the target threshold before the stage timer ends.",
+                "After the warm-up window, misses cost safety hearts, so ignore the decoys."
+            ];
+        case "sequence":
+            return [
+                "Read each step, then place the full routine in the strongest order from first to last.",
+                "Use the selected list to review your order before you submit it.",
+                "You only need most positions correct to pass, so focus on the key start and finish steps."
+            ];
+        case "quiz":
+            return [
+                "Read the question fully before choosing an answer.",
+                "Use the explanation card after each answer to learn from the feedback.",
+                "Reach the pass mark shown in the mission brief to clear the stage."
+            ];
+        case "plate":
+            return [
+                "Pick exactly the number of foods shown in the mission brief.",
+                "Cover each required food group instead of stacking similar foods.",
+                "Review the requirement chips before submitting your plate."
+            ];
+        case "sort":
+            return [
+                "Sort every item before pressing the submit button.",
+                "Think about which foods help most days and which belong in the occasional lane.",
+                "You do not need perfection, but you do need a strong majority of correct answers."
+            ];
+        case "scenario":
+            return [
+                "Pause on each situation and choose the safest action, not just the fastest one.",
+                "Use the explanation after each answer to adjust for the next scenario.",
+                "Aim to beat the pass mark shown in the mission brief."
+            ];
+        default:
+            return ["Read the mission brief, follow the goal, and use the coach note before you begin."];
+        }
+    }
+
     function getStageRewardPreview(stage) {
         const parts = [
             "Pass to earn 100 points.",
@@ -974,9 +1080,10 @@
         ];
 
         if (stage.type === "action-targets") {
-            parts.push(stage.config.consumable === "soap"
-                ? "Fast, accurate play also keeps your energy and soap bonuses."
-                : "Fast, accurate play also keeps your energy bonus.");
+            parts.push(
+                "Action stages now show a live timer, and accurate play protects your heart bonus" +
+                (stage.config.consumable === "soap" ? " and soap bonus." : ".")
+            );
         }
 
         return parts.join(" ");
@@ -989,7 +1096,7 @@
 
         return [
             stage.coachCopy || "Read the mission tip, then try the stage again.",
-            "Retrying helps the lesson stick."
+            getStageHowToPlay(stage)[0] || "Retrying helps the lesson stick."
         ];
     }
 
@@ -1171,6 +1278,7 @@
             "<div class=\"summary-item stage-prep-card\"><p class=\"summary-label\">Reward preview</p><p class=\"summary-value\">" + escapeHtml(getStageRewardPreview(stage)) + "</p></div>",
             "</div>",
             stage.coachCopy ? "<div class=\"coach-card\"><p class=\"summary-label\">Coach note</p><p class=\"summary-value\">" + escapeHtml(stage.coachCopy) + "</p></div>" : "",
+            buildTakeawayPanel("How to play", getStageHowToPlay(stage)),
             buildTakeawayPanel("What this mission teaches", mission.learningObjectives),
             "<div class=\"stage-trail\">",
             mission.stages.map(function (missionStage, index) {
@@ -1234,7 +1342,22 @@
             return "<div class=\"summary-item\"><p class=\"summary-label\">" + escapeHtml(detail.label) + "</p><p class=\"summary-value\">" + escapeHtml(detail.value) + "</p></div>";
         }).join("");
         const rewardHighlights = buildRewardHighlights(result.rewardHighlights);
-        const takeawayPanel = buildTakeawayPanel("What you learned", result.takeaways);
+        const takeawayPanel = buildTakeawayPanel(result.passed ? "What you learned" : "How to win next try", result.takeaways);
+        const stageHelpPanel = state.resultKind === "stage" ? buildTakeawayPanel("How to play this stage", getStageHowToPlay(getActiveStage())) : "";
+        const recoveryPanel = !result.passed && state.resultKind === "stage"
+            ? [
+                "<div class=\"recovery-grid\">",
+                "<div class=\"recovery-card retry\">",
+                "<p class=\"summary-label\">Retry stage</p>",
+                "<p class=\"summary-value\">Replay this challenge right away with your mission progress still intact.</p>",
+                "</div>",
+                "<div class=\"recovery-card exit\">",
+                "<p class=\"summary-label\">Exit mission</p>",
+                "<p class=\"summary-value\">Leave to the mission map now. Your unlocked missions and best scores stay saved.</p>",
+                "</div>",
+                "</div>"
+            ].join("")
+            : "";
         const nutrition = result.nutrition && result.nutrition.length > 0
             ? "<div class=\"nutrition-stack\">" + result.nutrition.map(function (item) {
                 return "<div class=\"nutrition-item\"><strong>" + escapeHtml(item.name) + "</strong><span>" + escapeHtml("Calories: " + item.calories + " • Protein: " + item.protein + " • " + item.source) + "</span></div>";
@@ -1249,8 +1372,10 @@
             "<p class=\"result-score\">" + (result.passed ? "+" + result.scoreDelta : "0") + " points</p>",
             "</div>",
             rewardHighlights,
+            recoveryPanel,
             "<div class=\"summary-stack result-detail-grid\">" + details + "</div>",
             takeawayPanel,
+            stageHelpPanel,
             nutrition,
             "<div class=\"result-tip-shell\">" + renderTipCard(state.resultsTip, "Mission Fact") + "</div>",
             "<div class=\"stage-actions\">" + buttons + "</div>"
@@ -1262,7 +1387,7 @@
             if (!result.passed) {
                 return [
                     "<button type=\"button\" class=\"primary-button\" data-action=\"retry-stage\">Retry Stage</button>",
-                    "<button type=\"button\" class=\"ghost-button\" data-action=\"back-to-map\">Back to Map</button>"
+                    "<button type=\"button\" class=\"ghost-button\" data-action=\"back-to-map\">Exit Mission</button>"
                 ].join("");
             }
 
@@ -1443,6 +1568,18 @@
         }
     }
 
+    function getActionTimeRemainingMs(stageRuntime) {
+        if (!stageRuntime) {
+            return 0;
+        }
+
+        if (!stageRuntime.live || !stageRuntime.playEndsAt) {
+            return getActionDurationMs(stageRuntime);
+        }
+
+        return Math.max(0, stageRuntime.playEndsAt - Date.now());
+    }
+
     function renderActionStageFrame() {
         const stageRuntime = runtime.stageRuntime;
 
@@ -1456,14 +1593,15 @@
             "<div class=\"action-stage-shell\">",
             "<div class=\"action-status-bar\">",
             "<div class=\"status-chip\"><span>Goal</span><strong id=\"action-goal\">" + stageRuntime.hits + "/" + config.goal + "</strong></div>",
-            "<div class=\"status-chip\"><span>Misses</span><strong id=\"action-misses\">" + state.misses + "/" + config.maxMisses + "</strong></div>",
+            "<div class=\"status-chip timer-chip\"><span>Time</span><strong id=\"action-time\">" + formatDurationClock(getActionTimeRemainingMs(stageRuntime)) + "</strong></div>",
+            "<div class=\"status-chip\"><span>Hearts</span><strong id=\"action-hearts\">" + (state.energy || 0) + "/" + config.startingEnergy + "</strong></div>",
             "<div class=\"status-chip\"><span>Soap</span><strong id=\"action-soap\">" + (config.consumable === "soap" ? state.soap : "Not used") + "</strong></div>",
             "</div>",
             "<div class=\"playfield-frame\">",
             "<div id=\"playfield\" class=\"playfield\"></div>",
             "<div id=\"playfield-overlay\" class=\"playfield-overlay\"></div>",
             "</div>",
-            "<p class=\"screen-copy action-copy\">Watch the countdown, then collect the good targets. During the warm-up window, mistakes do not cost energy.</p>",
+            "<p class=\"screen-copy action-copy\">Watch the countdown, clear " + config.goal + " targets before " + formatDurationClock(getActionDurationMs(stageRuntime)) + " runs out, and use the warm-up window to settle in before hearts are at risk.</p>",
             "</div>"
         ].join("");
 
@@ -1502,7 +1640,7 @@
             stageRuntime.overlay.innerHTML = [
                 "<div class=\"overlay-badge\">GO</div>",
                 "<p class=\"overlay-title\">Warm-up window</p>",
-                "<p class=\"overlay-copy\">You have " + secondsLeft + " more seconds where mistakes do not cost energy.</p>"
+                "<p class=\"overlay-copy\">You have " + secondsLeft + " more seconds where mistakes do not cost hearts. The stage timer is already running.</p>"
             ].join("");
             return;
         }
@@ -1510,11 +1648,6 @@
         stageRuntime.overlay.hidden = true;
         stageRuntime.overlay.className = "playfield-overlay hidden";
         stageRuntime.overlay.innerHTML = "";
-
-        if (stageRuntime.overlayTimer) {
-            window.clearInterval(stageRuntime.overlayTimer);
-            stageRuntime.overlayTimer = null;
-        }
     }
 
     function isActionPenaltyLive(stageRuntime) {
@@ -1529,7 +1662,11 @@
         }
 
         stageRuntime.live = true;
+        stageRuntime.liveStartedAt = Date.now();
+        stageRuntime.playEndsAt = stageRuntime.liveStartedAt + getActionDurationMs(stageRuntime);
+        stageRuntime.safeUntil = stageRuntime.liveStartedAt + stageRuntime.gracePeriodMs;
         updateActionOverlay();
+        updateActionStatusBar();
         stageRuntime.spawnTimer = window.setInterval(function () {
             spawnActionTarget();
         }, stageRuntime.config.spawnIntervalMs);
@@ -1548,7 +1685,7 @@
         const config = stage.config;
         const startedAt = Date.now();
         const countdownMs = config.countdownMs || 3000;
-        const safeStartMs = Math.max(config.safeStartMs || 6000, countdownMs);
+        const gracePeriodMs = Math.max((config.safeStartMs || 4800) - countdownMs, 1200);
 
         state.energy = config.startingEnergy;
         state.soap = config.startingSoap || 0;
@@ -1568,7 +1705,9 @@
             overlayTimer: null,
             startedAt: startedAt,
             countdownEndsAt: startedAt + countdownMs,
-            safeUntil: startedAt + safeStartMs,
+            gracePeriodMs: gracePeriodMs,
+            safeUntil: startedAt + countdownMs + gracePeriodMs,
+            playEndsAt: null,
             live: false,
             lastWarmupToastAt: 0
         };
@@ -1585,7 +1724,34 @@
                 activateActionStage();
             }
 
+            if (activeRuntime.live && activeRuntime.playEndsAt && Date.now() >= activeRuntime.playEndsAt) {
+                finishStage({
+                    passed: false,
+                    eyebrow: "Time up",
+                    title: getActiveStage().title,
+                    summary: "The countdown finished before you reached the target threshold.",
+                    details: [
+                        { label: "Targets cleared", value: String(activeRuntime.hits) },
+                        { label: "Target threshold", value: String(activeRuntime.config.goal) },
+                        { label: "Hearts left", value: String(state.energy || 0) },
+                        { label: "Time", value: formatDurationClock(getActionDurationMs(activeRuntime)) }
+                    ],
+                    scoreDelta: 0,
+                    nutrition: [],
+                    takeaways: [
+                        getActiveStage().coachCopy || "Start quickly after GO and focus on the correct targets.",
+                        "You can retry immediately or exit to the mission map without losing unlocked progress."
+                    ],
+                    rewardHighlights: [
+                        { label: "Try again", value: "Replay the stage now and keep building the habit.", tone: "unlock" },
+                        { label: "Need a break?", value: "Exit to the mission map and come back later.", tone: "default" }
+                    ]
+                });
+                return;
+            }
+
             updateActionOverlay();
+            updateActionStatusBar();
         }, 250);
     }
 
@@ -1675,15 +1841,20 @@
 
     function updateActionStatusBar() {
         const goalNode = document.getElementById("action-goal");
-        const missesNode = document.getElementById("action-misses");
+        const timeNode = document.getElementById("action-time");
+        const heartsNode = document.getElementById("action-hearts");
         const soapNode = document.getElementById("action-soap");
 
         if (goalNode && runtime.stageRuntime) {
             goalNode.textContent = runtime.stageRuntime.hits + "/" + runtime.stageRuntime.config.goal;
         }
 
-        if (missesNode && runtime.stageRuntime) {
-            missesNode.textContent = state.misses + "/" + runtime.stageRuntime.config.maxMisses;
+        if (timeNode && runtime.stageRuntime) {
+            timeNode.textContent = formatDurationClock(getActionTimeRemainingMs(runtime.stageRuntime));
+        }
+
+        if (heartsNode && runtime.stageRuntime) {
+            heartsNode.textContent = (state.energy || 0) + "/" + runtime.stageRuntime.config.startingEnergy;
         }
 
         if (soapNode && runtime.stageRuntime) {
@@ -1742,9 +1913,10 @@
                 passed: false,
                 eyebrow: "Stage failed",
                 title: getActiveStage().title,
-                summary: "You lost all 3 safety hearts before the clean-up goal was complete.",
+                summary: "You ran out of safety hearts before reaching the target threshold.",
                 details: [
                     { label: "Targets cleared", value: String(stageRuntime.hits) },
+                    { label: "Target threshold", value: String(stageRuntime.config.goal) },
                     { label: "Misses", value: String(state.misses) },
                     { label: "Soap left", value: String(state.soap) }
                 ],
@@ -1752,7 +1924,11 @@
                 nutrition: [],
                 takeaways: [
                     getActiveStage().coachCopy || "Wait for GO, then tap the helpful target only.",
-                    "Use the warm-up window to settle in before the penalties start."
+                    "Use Retry Stage for another attempt, or Exit Mission if you want to step away."
+                ],
+                rewardHighlights: [
+                    { label: "Retry path", value: "Start the same stage again right away.", tone: "unlock" },
+                    { label: "Exit path", value: "Return to the mission map without losing progress.", tone: "default" }
                 ]
             });
         }
@@ -1787,16 +1963,22 @@
                     passed: false,
                     eyebrow: "Stage failed",
                     title: getActiveStage().title,
-                    summary: "Your soap ran out before the area was clean.",
+                    summary: "Your soap ran out before the target threshold was complete.",
                     details: [
                         { label: "Targets cleared", value: String(stageRuntime.hits) },
+                        { label: "Target threshold", value: String(stageRuntime.config.goal) },
                         { label: "Misses", value: String(state.misses) },
                         { label: "Soap left", value: String(state.soap) }
                     ],
                     scoreDelta: 0,
                     nutrition: [],
                     takeaways: [
-                        getActiveStage().coachCopy || "Tap only the real target so your supplies last longer."
+                        getActiveStage().coachCopy || "Tap only the real target so your supplies last longer.",
+                        "Retry the stage for another run, or exit back to the mission map."
+                    ],
+                    rewardHighlights: [
+                        { label: "Retry path", value: "Replay this stage immediately.", tone: "unlock" },
+                        { label: "Exit path", value: "Leave the mission and come back later.", tone: "default" }
                     ]
                 });
                 return;
@@ -1820,6 +2002,7 @@
                 details: [
                     { label: "Targets cleared", value: String(stageRuntime.hits) },
                     { label: "Misses", value: String(state.misses) },
+                    { label: "Time left", value: formatDurationClock(getActionTimeRemainingMs(stageRuntime)) },
                     { label: "Energy bonus", value: String((state.energy || 0) * 10) },
                     { label: "Soap bonus", value: stageRuntime.config.consumable === "soap" ? String(state.soap * 5) : "0" }
                 ],
@@ -1841,13 +2024,19 @@
                 summary: "Your soap ran out before the remaining targets could be cleared.",
                 details: [
                     { label: "Targets cleared", value: String(stageRuntime.hits) },
+                    { label: "Target threshold", value: String(stageRuntime.config.goal) },
                     { label: "Misses", value: String(state.misses) },
                     { label: "Soap left", value: "0" }
                 ],
                 scoreDelta: 0,
                 nutrition: [],
                 takeaways: [
-                    getActiveStage().coachCopy || "Tap only the real target so your supplies last longer."
+                    getActiveStage().coachCopy || "Tap only the real target so your supplies last longer.",
+                    "Use Retry Stage to jump straight back in, or Exit Mission if you want to leave."
+                ],
+                rewardHighlights: [
+                    { label: "Retry path", value: "Replay the same stage now.", tone: "unlock" },
+                    { label: "Exit path", value: "Return to the mission map safely.", tone: "default" }
                 ]
             });
         }
@@ -2501,12 +2690,17 @@
     const game = {
         state: state,
         init: function () {
+            runtime.loadingStartedAt = Date.now();
             cacheDom();
+            setLoadingState("Preparing your mission...", "Booting mission control...", 12);
             bindEvents();
+            setLoadingState("Restoring your progress...", "Checking badges, scores, and checkpoints...", 32);
             runtime.apiService = new APIService();
             restoreProgress();
+            setLoadingState("Loading your missions...", "Laying out the dashboard and mission map...", 58);
             applyRouteFromUrl();
             renderAll();
+            setLoadingState("Finalizing your game...", "Health tips will continue loading in the background.", 84);
             refreshDashboardTip(false);
 
             if (state.screen === "stage" && state.missionId) {
@@ -2515,10 +2709,7 @@
                 refreshResultsTip(getMission(state.missionId).topic);
             }
 
-            window.setTimeout(function () {
-                runtime.loadingDone = true;
-                runtime.dom.loadingScreen.classList.add("hidden");
-            }, 500);
+            hideLoadingScreen();
         },
         startMission: function (missionId) {
             if (isMissionLocked(missionId)) {

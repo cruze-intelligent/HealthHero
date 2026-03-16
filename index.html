@@ -22,7 +22,11 @@
         <div id="loading-screen" class="loading-screen" aria-live="polite">
             <div class="loader-ring" aria-hidden="true"></div>
             <p class="loading-title">Health Hero</p>
-            <p class="loading-copy">Preparing your mission...</p>
+            <p id="loading-copy" class="loading-copy">Preparing your mission...</p>
+            <div class="loading-progress-shell" aria-hidden="true">
+                <div id="loading-progress-bar" class="loading-progress-bar"></div>
+            </div>
+            <p id="loading-stage" class="loading-stage">Booting mission control...</p>
         </div>
 
         <div id="offline-indicator" class="offline-indicator" hidden>📡 Offline Mode</div>
@@ -207,11 +211,11 @@
                     </article>
                     <article class="help-card">
                         <h3>🎮 Controls</h3>
-                        <p>Use touch, mouse, or keyboard. Every interactive element is a button, so Tab and Enter also work across the game.</p>
+                        <p>Use touch, mouse, or keyboard. Every interactive element is a button, so Tab and Enter also work across the game. Action missions show a live goal counter and countdown timer.</p>
                     </article>
                     <article class="help-card">
-                        <h3>⭐ Scoring</h3>
-                        <p>Passing a stage earns 100 points, perfect play adds 25, and action stages can add extra energy or soap bonuses when you play carefully.</p>
+                        <h3>⭐ Action stages</h3>
+                        <p>Watch the countdown, wait for GO, then hit only the correct targets before the timer runs out. If you miss the target threshold, use Retry Stage to replay instantly or Exit Mission to leave safely.</p>
                     </article>
                     <article class="help-card">
                         <h3>💾 Progress</h3>
