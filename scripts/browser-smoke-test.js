@@ -56,6 +56,30 @@ const HELPER_SOURCE = String.raw`
                 progressText: document.getElementById("topbar-progress") ? document.getElementById("topbar-progress").textContent : ""
             };
         },
+        async exportProgressReport() {
+            const meta = await window.HealthHeroGame.exportProgressPng({ download: false });
+            const canvas = window.__healthHeroLastExportCanvas;
+            let qrText = null;
+            const detectorAvailable = typeof BarcodeDetector === "function";
+
+            if (detectorAvailable && canvas) {
+                try {
+                    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+                    const matches = await detector.detect(canvas);
+
+                    qrText = matches[0] ? matches[0].rawValue : null;
+                } catch (error) {
+                    qrText = null;
+                }
+            }
+
+            return {
+                meta: meta,
+                hasCanvas: Boolean(canvas),
+                detectorAvailable: detectorAvailable,
+                qrText: qrText
+            };
+        },
         getMission(missionId) {
             return window.HEALTH_HERO_CONTENT.missions.find((mission) => mission.id === missionId) || null;
         },
@@ -652,6 +676,16 @@ async function run() {
         snapshot = await helper(session, "state");
         assert(snapshot.screen === "results" && snapshot.resultKind === "mission" && snapshot.currentStageResult && snapshot.currentStageResult.missionId === "hygiene-hq", "Reloading on a mission result should keep the mission result screen.", snapshot);
         assert(snapshot.unlockedMissionIds.length === 2, "Mission 1 should unlock Mission 2 exactly once.", snapshot);
+
+        log("Checking progress PNG export...");
+        const exportReport = await helper(session, "exportProgressReport");
+        assert(exportReport.meta && exportReport.meta.width === 1600 && exportReport.meta.height === 1760, "Progress export should render the branded PNG canvas at the expected size.", exportReport);
+        assert(exportReport.meta && exportReport.meta.qrUrl === "https://games.cruze-tech.com", "Progress export should target the live game URL.", exportReport);
+        assert(exportReport.hasCanvas, "Progress export should retain the rendered canvas for follow-up actions.", exportReport);
+
+        if (exportReport.detectorAvailable) {
+            assert(exportReport.qrText === exportReport.meta.qrUrl, "The exported QR code should decode to the live game URL.", exportReport);
+        }
 
         snapshot = await helper(session, "continueFromResults");
         assert(snapshot.screen === "map", "Leaving the Mission 1 report should return to the mission map.", snapshot);

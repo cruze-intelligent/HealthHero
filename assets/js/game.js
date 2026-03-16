@@ -13,6 +13,24 @@
     const legacyStorageKeys = {
         progress: "healthHeroProgress.v2"
     };
+    const brand = content.brand || {
+        companyName: "Cruze Intelligent Systems(U) Ltd",
+        companyWebsite: "cruzeintelligentsystems.com",
+        gameWebsite: "https://games.cruze-tech.com",
+        gameWebsiteLabel: "games.cruze-tech.com"
+    };
+    const exportTheme = {
+        navy: "#0D2A38",
+        teal: "#0E7490",
+        sky: "#22C7F0",
+        mango: "#F4B942",
+        orange: "#F97316",
+        leaf: "#69B34C",
+        paper: "#FFF8E8",
+        white: "#FFFFFF",
+        inkSoft: "rgba(13, 42, 56, 0.72)",
+        line: "rgba(13, 42, 56, 0.12)"
+    };
 
     const defaultState = {
         screen: "dashboard",
@@ -48,7 +66,9 @@
         loadingDone: false,
         loadingStartedAt: 0,
         toastTimer: null,
-        tipToken: 0
+        tipToken: 0,
+        lastExportCanvas: null,
+        lastExportMeta: null
     };
 
     function clone(value) {
@@ -816,6 +836,11 @@
             renderDashboard();
             saveProgress();
             break;
+        case "download-progress-png":
+            downloadProgressPng().catch(function () {
+                showToast("Could not create the progress PNG.");
+            });
+            break;
         case "install":
             promptInstall();
             break;
@@ -1098,6 +1123,884 @@
             stage.coachCopy || "Read the mission tip, then try the stage again.",
             getStageHowToPlay(stage)[0] || "Retrying helps the lesson stick."
         ];
+    }
+
+    function getNextMissionForExport() {
+        return content.missions.find(function (mission) {
+            return state.unlockedMissionIds.indexOf(mission.id) > -1 && !getBadgeEarned(mission);
+        }) || content.missions[content.missions.length - 1];
+    }
+
+    function getMissionCompletedStageCount(mission) {
+        if (getBadgeEarned(mission)) {
+            return mission.stages.length;
+        }
+
+        let completedStages = 0;
+
+        if (state.checkpoint && state.checkpoint.missionId === mission.id) {
+            completedStages = Math.max(completedStages, state.checkpoint.stageScores.filter(function (score) {
+                return score > 0;
+            }).length);
+        }
+
+        if (state.missionId === mission.id) {
+            completedStages = Math.max(completedStages, state.currentMissionStageScores.filter(function (score) {
+                return score > 0;
+            }).length);
+
+            if (state.currentStageResult && state.currentStageResult.missionId === mission.id && state.resultKind === "stage" && state.currentStageResult.passed) {
+                completedStages = Math.max(completedStages, state.stageIndex + 1);
+            }
+        }
+
+        return clamp(completedStages, 0, mission.stages.length);
+    }
+
+    function getMissionExportStatus(mission) {
+        if (getBadgeEarned(mission)) {
+            return {
+                label: "Completed",
+                textColor: "#1A5C30",
+                background: "rgba(105, 179, 76, 0.18)",
+                border: "rgba(43, 147, 72, 0.3)"
+            };
+        }
+
+        if ((state.checkpoint && state.checkpoint.missionId === mission.id) || (state.missionId === mission.id && !isMissionLocked(mission.id))) {
+            return {
+                label: "In Progress",
+                textColor: "#8C4B00",
+                background: "rgba(244, 185, 66, 0.2)",
+                border: "rgba(249, 115, 22, 0.28)"
+            };
+        }
+
+        if (!isMissionLocked(mission.id)) {
+            return {
+                label: "Ready",
+                textColor: exportTheme.teal,
+                background: "rgba(34, 199, 240, 0.12)",
+                border: "rgba(14, 116, 144, 0.18)"
+            };
+        }
+
+        return {
+            label: "Locked",
+            textColor: "rgba(13, 42, 56, 0.55)",
+            background: "rgba(13, 42, 56, 0.08)",
+            border: "rgba(13, 42, 56, 0.12)"
+        };
+    }
+
+    function getCheckpointSummary() {
+        if (!state.checkpoint) {
+            return "No active checkpoint saved yet.";
+        }
+
+        const mission = getMission(state.checkpoint.missionId);
+
+        if (!mission) {
+            return "No active checkpoint saved yet.";
+        }
+
+        return "Resume " + mission.title + " at Stage " + (state.checkpoint.stageIndex + 1) + " of " + mission.stages.length + ".";
+    }
+
+    function getLatestProgressSummary() {
+        if (state.resultKind === "final") {
+            return {
+                eyebrow: "Campaign complete",
+                title: "Healthy Habits Adventure complete",
+                summary: "All four missions are cleared and the full campaign report is ready to share.",
+                details: [
+                    "Total score: " + getCommittedScore(),
+                    "Badges earned: " + state.badges.length + " of " + content.missions.length,
+                    "Game site: " + brand.gameWebsiteLabel
+                ]
+            };
+        }
+
+        if (state.currentStageResult && (state.resultKind === "stage" || state.resultKind === "mission")) {
+            return {
+                eyebrow: state.resultKind === "mission" ? "Latest mission report" : "Latest stage report",
+                title: state.currentStageResult.title,
+                summary: state.currentStageResult.summary,
+                details: [
+                    "Status: " + (state.currentStageResult.passed ? "Passed" : "Needs retry"),
+                    "Score impact: " + (state.currentStageResult.passed ? "+" + state.currentStageResult.scoreDelta : "0") + " points"
+                ].concat((state.currentStageResult.details || []).slice(0, 2).map(function (detail) {
+                    return detail.label + ": " + detail.value;
+                }))
+            };
+        }
+
+        if (state.checkpoint) {
+            return {
+                eyebrow: "Current checkpoint",
+                title: "Mission progress is saved locally",
+                summary: getCheckpointSummary(),
+                details: [
+                    "Resume anytime from this device.",
+                    "Unlocked missions and best scores stay saved.",
+                    "Download this PNG to share progress outside the app."
+                ]
+            };
+        }
+
+        const nextMission = getNextMissionForExport();
+
+        return {
+            eyebrow: "Ready to start",
+            title: nextMission.title,
+            summary: nextMission.tagline,
+            details: [
+                "Next focus: " + nextMission.learningObjectives[0],
+                "Campaign progress: " + state.badges.length + " of " + content.missions.length + " missions completed",
+                "Game site: " + brand.gameWebsiteLabel
+            ]
+        };
+    }
+
+    function formatExportTimestamp(date) {
+        try {
+            return new Intl.DateTimeFormat(undefined, {
+                dateStyle: "long",
+                timeStyle: "short"
+            }).format(date);
+        } catch (error) {
+            return date.toLocaleString();
+        }
+    }
+
+    function getExportFileName() {
+        return "health-hero-progress-" + new Date().toISOString().replace(/[:.]/g, "-") + ".png";
+    }
+
+    function getMissionAccentColors(accent) {
+        if (accent === "leaf") {
+            return {
+                start: "#69B34C",
+                end: "#A0D468",
+                soft: "rgba(105, 179, 76, 0.14)"
+            };
+        }
+
+        if (accent === "teal") {
+            return {
+                start: "#0E7490",
+                end: "#22C7F0",
+                soft: "rgba(34, 199, 240, 0.14)"
+            };
+        }
+
+        return {
+            start: "#F4B942",
+            end: "#F97316",
+            soft: "rgba(244, 185, 66, 0.16)"
+        };
+    }
+
+    function waitForFontsReady() {
+        if (!document.fonts || !document.fonts.ready) {
+            return Promise.resolve();
+        }
+
+        return document.fonts.ready.then(function () {
+            return;
+        }, function () {
+            return;
+        });
+    }
+
+    function drawRoundedRectPath(ctx, x, y, width, height, radius) {
+        const safeRadius = Math.min(radius, width / 2, height / 2);
+
+        ctx.beginPath();
+        ctx.moveTo(x + safeRadius, y);
+        ctx.lineTo(x + width - safeRadius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+        ctx.lineTo(x + width, y + height - safeRadius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+        ctx.lineTo(x + safeRadius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+        ctx.lineTo(x, y + safeRadius);
+        ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+        ctx.closePath();
+    }
+
+    function fillRoundedRect(ctx, x, y, width, height, radius, fillStyle) {
+        ctx.save();
+        ctx.fillStyle = fillStyle;
+        drawRoundedRectPath(ctx, x, y, width, height, radius);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function strokeRoundedRect(ctx, x, y, width, height, radius, strokeStyle, lineWidth) {
+        ctx.save();
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = lineWidth || 1;
+        drawRoundedRectPath(ctx, x, y, width, height, radius);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+        const words = String(text || "").split(/\s+/).filter(Boolean);
+        const lines = [];
+        let currentLine = "";
+
+        if (words.length === 0) {
+            return y;
+        }
+
+        words.forEach(function (word) {
+            const tentative = currentLine ? currentLine + " " + word : word;
+
+            if (currentLine && ctx.measureText(tentative).width > maxWidth) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = tentative;
+            }
+        });
+
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        if (maxLines && lines.length > maxLines) {
+            const visibleLines = lines.slice(0, maxLines);
+            let lastLine = visibleLines[visibleLines.length - 1];
+
+            while (lastLine.length > 0 && ctx.measureText(lastLine + "...").width > maxWidth) {
+                lastLine = lastLine.slice(0, -1);
+            }
+
+            visibleLines[visibleLines.length - 1] = lastLine + "...";
+            visibleLines.forEach(function (line, index) {
+                ctx.fillText(line, x, y + index * lineHeight);
+            });
+
+            return y + visibleLines.length * lineHeight;
+        }
+
+        lines.forEach(function (line, index) {
+            ctx.fillText(line, x, y + index * lineHeight);
+        });
+
+        return y + lines.length * lineHeight;
+    }
+
+    function drawDetailBlock(ctx, label, value, x, y, width) {
+        ctx.save();
+        ctx.fillStyle = "rgba(13, 42, 56, 0.56)";
+        ctx.font = '700 18px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.fillText(label.toUpperCase(), x, y);
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '700 28px "Baloo 2", "Trebuchet MS", sans-serif';
+        const endY = drawWrappedText(ctx, value, x, y + 34, width, 30, 3);
+        ctx.restore();
+
+        return endY;
+    }
+
+    function drawStatCard(ctx, x, y, width, height, label, value, accentColor) {
+        fillRoundedRect(ctx, x, y, width, height, 26, "rgba(255, 255, 255, 0.95)");
+        strokeRoundedRect(ctx, x, y, width, height, 26, "rgba(255, 255, 255, 0.34)", 1);
+        fillRoundedRect(ctx, x + 20, y + 20, width - 40, 8, 6, accentColor);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(13, 42, 56, 0.56)";
+        ctx.font = '700 18px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.fillText(label.toUpperCase(), x + 24, y + 58);
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '800 34px "Baloo 2", "Trebuchet MS", sans-serif';
+        drawWrappedText(ctx, value, x + 24, y + 96, width - 48, 34, 2);
+        ctx.restore();
+    }
+
+    function drawMissionExportCard(ctx, mission, x, y, width, height) {
+        const accent = getMissionAccentColors(mission.accent);
+        const status = getMissionExportStatus(mission);
+        const completedStages = getMissionCompletedStageCount(mission);
+        const bestScore = state.bestScores[mission.id] || 0;
+        const badgeLine = getBadgeEarned(mission) ? "Badge earned: " + mission.badge.label : "Badge pending: " + mission.badge.label;
+
+        fillRoundedRect(ctx, x, y, width, height, 28, "rgba(255, 255, 255, 0.95)");
+        strokeRoundedRect(ctx, x, y, width, height, 28, accent.soft, 2);
+
+        const accentBar = ctx.createLinearGradient(x, y, x + width, y);
+        accentBar.addColorStop(0, accent.start);
+        accentBar.addColorStop(1, accent.end);
+        fillRoundedRect(ctx, x + 22, y + 20, width - 44, 10, 6, accentBar);
+
+        fillRoundedRect(ctx, x + width - 186, y + 34, 150, 40, 20, status.background);
+        strokeRoundedRect(ctx, x + width - 186, y + 34, 150, 40, 20, status.border, 1);
+
+        ctx.save();
+        ctx.fillStyle = status.textColor;
+        ctx.font = '700 18px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.textAlign = "center";
+        ctx.fillText(status.label, x + width - 111, y + 60);
+        ctx.textAlign = "left";
+
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '800 34px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText(mission.title, x + 24, y + 70);
+
+        ctx.fillStyle = exportTheme.inkSoft;
+        ctx.font = '400 20px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        drawWrappedText(ctx, mission.tagline, x + 24, y + 108, width - 48, 26, 2);
+
+        ctx.fillStyle = "rgba(13, 42, 56, 0.56)";
+        ctx.font = '700 18px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.fillText("STAGE PROGRESS", x + 24, y + 164);
+        ctx.fillText("BEST SCORE", x + 24, y + 214);
+        ctx.fillText("BADGE", x + 24, y + 264);
+
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '700 26px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText(completedStages + "/" + mission.stages.length + " stages cleared", x + 24, y + 192);
+        ctx.fillText(String(bestScore) + " points", x + 24, y + 242);
+        drawWrappedText(ctx, badgeLine, x + 24, y + 292, width - 48, 24, 2);
+        ctx.restore();
+    }
+
+    function appendBits(value, bitCount, output) {
+        for (let shift = bitCount - 1; shift >= 0; shift -= 1) {
+            output.push((value >>> shift) & 1);
+        }
+    }
+
+    function getQrMathTables() {
+        if (getQrMathTables.cache) {
+            return getQrMathTables.cache;
+        }
+
+        const exp = new Array(512);
+        const log = new Array(256);
+        let value = 1;
+
+        for (let index = 0; index < 255; index += 1) {
+            exp[index] = value;
+            log[value] = index;
+            value <<= 1;
+
+            if (value & 0x100) {
+                value ^= 0x11D;
+            }
+        }
+
+        for (let index = 255; index < exp.length; index += 1) {
+            exp[index] = exp[index - 255];
+        }
+
+        getQrMathTables.cache = {
+            exp: exp,
+            log: log
+        };
+
+        return getQrMathTables.cache;
+    }
+
+    function qrMultiply(left, right) {
+        if (left === 0 || right === 0) {
+            return 0;
+        }
+
+        const tables = getQrMathTables();
+
+        return tables.exp[tables.log[left] + tables.log[right]];
+    }
+
+    function buildQrGeneratorPolynomial(degree) {
+        const tables = getQrMathTables();
+        let polynomial = [1];
+
+        for (let index = 0; index < degree; index += 1) {
+            const next = new Array(polynomial.length + 1).fill(0);
+
+            for (let coefficient = 0; coefficient < polynomial.length; coefficient += 1) {
+                next[coefficient] ^= polynomial[coefficient];
+                next[coefficient + 1] ^= qrMultiply(polynomial[coefficient], tables.exp[index]);
+            }
+
+            polynomial = next;
+        }
+
+        return polynomial;
+    }
+
+    function computeQrErrorCorrection(dataCodewords, eccCodewordCount) {
+        const generator = buildQrGeneratorPolynomial(eccCodewordCount);
+        const remainder = new Array(eccCodewordCount).fill(0);
+
+        dataCodewords.forEach(function (dataByte) {
+            const factor = dataByte ^ remainder[0];
+
+            remainder.shift();
+            remainder.push(0);
+
+            for (let index = 0; index < eccCodewordCount; index += 1) {
+                remainder[index] ^= qrMultiply(generator[index + 1], factor);
+            }
+        });
+
+        return remainder;
+    }
+
+    function createQrMatrix(text) {
+        const payload = Array.prototype.slice.call(new TextEncoder().encode(text));
+        const version = 2;
+        const size = 25;
+        const dataCodewordCount = 34;
+        const eccCodewordCount = 10;
+        const capacityBits = dataCodewordCount * 8;
+        const bitStream = [];
+
+        appendBits(0x4, 4, bitStream);
+        appendBits(payload.length, 8, bitStream);
+        payload.forEach(function (byte) {
+            appendBits(byte, 8, bitStream);
+        });
+
+        if (bitStream.length > capacityBits) {
+            throw new Error("QR payload is too large for the export card.");
+        }
+
+        appendBits(0, Math.min(4, capacityBits - bitStream.length), bitStream);
+
+        while (bitStream.length % 8 !== 0) {
+            bitStream.push(0);
+        }
+
+        const padBytes = [0xEC, 0x11];
+        let padIndex = 0;
+
+        while (bitStream.length < capacityBits) {
+            appendBits(padBytes[padIndex % padBytes.length], 8, bitStream);
+            padIndex += 1;
+        }
+
+        const dataCodewords = [];
+
+        for (let index = 0; index < bitStream.length; index += 8) {
+            let value = 0;
+
+            for (let bit = 0; bit < 8; bit += 1) {
+                value = (value << 1) | bitStream[index + bit];
+            }
+
+            dataCodewords.push(value);
+        }
+
+        const allCodewords = dataCodewords.concat(computeQrErrorCorrection(dataCodewords, eccCodewordCount));
+        const modules = Array.from({ length: size }, function () {
+            return Array(size).fill(false);
+        });
+        const reserved = Array.from({ length: size }, function () {
+            return Array(size).fill(false);
+        });
+        const setModule = function (x, y, isDark) {
+            if (x < 0 || y < 0 || x >= size || y >= size) {
+                return;
+            }
+
+            modules[y][x] = Boolean(isDark);
+            reserved[y][x] = true;
+        };
+        const placeFinder = function (x, y) {
+            for (let offsetY = -1; offsetY <= 7; offsetY += 1) {
+                for (let offsetX = -1; offsetX <= 7; offsetX += 1) {
+                    const targetX = x + offsetX;
+                    const targetY = y + offsetY;
+
+                    if (targetX < 0 || targetY < 0 || targetX >= size || targetY >= size) {
+                        continue;
+                    }
+
+                    const inBody = offsetX >= 0 && offsetX <= 6 && offsetY >= 0 && offsetY <= 6;
+                    const isDark = inBody && (
+                        offsetX === 0 || offsetX === 6 || offsetY === 0 || offsetY === 6 ||
+                        (offsetX >= 2 && offsetX <= 4 && offsetY >= 2 && offsetY <= 4)
+                    );
+
+                    setModule(targetX, targetY, isDark);
+                }
+            }
+        };
+        const placeAlignment = function (centerX, centerY) {
+            for (let offsetY = -2; offsetY <= 2; offsetY += 1) {
+                for (let offsetX = -2; offsetX <= 2; offsetX += 1) {
+                    const distance = Math.max(Math.abs(offsetX), Math.abs(offsetY));
+                    setModule(centerX + offsetX, centerY + offsetY, distance !== 1);
+                }
+            }
+        };
+        const drawFormatBits = function (maskPattern) {
+            let data = (1 << 3) | maskPattern;
+            let remainder = data;
+
+            for (let index = 0; index < 10; index += 1) {
+                remainder = (remainder << 1) ^ (((remainder >>> 9) & 1) * 0x537);
+            }
+
+            const bits = ((data << 10) | remainder) ^ 0x5412;
+            const getBit = function (index) {
+                return ((bits >>> index) & 1) === 1;
+            };
+
+            for (let index = 0; index <= 5; index += 1) {
+                setModule(8, index, getBit(index));
+            }
+
+            setModule(8, 7, getBit(6));
+            setModule(8, 8, getBit(7));
+            setModule(7, 8, getBit(8));
+
+            for (let index = 9; index < 15; index += 1) {
+                setModule(14 - index, 8, getBit(index));
+            }
+
+            for (let index = 0; index < 8; index += 1) {
+                setModule(size - 1 - index, 8, getBit(index));
+            }
+
+            for (let index = 8; index < 15; index += 1) {
+                setModule(8, size - 15 + index, getBit(index));
+            }
+        };
+
+        placeFinder(0, 0);
+        placeFinder(size - 7, 0);
+        placeFinder(0, size - 7);
+        placeAlignment(18, 18);
+
+        for (let index = 8; index < size - 8; index += 1) {
+            if (!reserved[6][index]) {
+                setModule(index, 6, index % 2 === 0);
+            }
+
+            if (!reserved[index][6]) {
+                setModule(6, index, index % 2 === 0);
+            }
+        }
+
+        for (let index = 0; index < 9; index += 1) {
+            if (index !== 6) {
+                reserved[8][index] = true;
+                reserved[index][8] = true;
+            }
+        }
+
+        for (let index = 0; index < 8; index += 1) {
+            reserved[8][size - 1 - index] = true;
+        }
+
+        for (let index = 0; index < 7; index += 1) {
+            reserved[size - 1 - index][8] = true;
+        }
+
+        setModule(8, size - 8, true);
+
+        const dataBits = [];
+
+        allCodewords.forEach(function (codeword) {
+            appendBits(codeword, 8, dataBits);
+        });
+
+        let bitIndex = 0;
+        let movingUp = true;
+
+        for (let right = size - 1; right >= 1; right -= 2) {
+            const column = right === 6 ? 5 : right;
+
+            for (let offset = 0; offset < size; offset += 1) {
+                const row = movingUp ? size - 1 - offset : offset;
+
+                for (let pair = 0; pair < 2; pair += 1) {
+                    const currentColumn = column - pair;
+
+                    if (reserved[row][currentColumn]) {
+                        continue;
+                    }
+
+                    let bit = bitIndex < dataBits.length ? dataBits[bitIndex] : 0;
+
+                    bitIndex += 1;
+
+                    if ((row + currentColumn) % 2 === 0) {
+                        bit ^= 1;
+                    }
+
+                    modules[row][currentColumn] = bit === 1;
+                }
+            }
+
+            movingUp = !movingUp;
+        }
+
+        drawFormatBits(0);
+
+        return modules;
+    }
+
+    function drawQrCode(ctx, text, x, y, size) {
+        const matrix = createQrMatrix(text);
+        const quietZone = 4;
+        const moduleSize = Math.floor(size / (matrix.length + quietZone * 2));
+        const qrSize = moduleSize * (matrix.length + quietZone * 2);
+        const offsetX = x + Math.floor((size - qrSize) / 2);
+        const offsetY = y + Math.floor((size - qrSize) / 2);
+
+        ctx.save();
+        ctx.fillStyle = exportTheme.white;
+        ctx.fillRect(offsetX, offsetY, qrSize, qrSize);
+        ctx.fillStyle = exportTheme.navy;
+
+        matrix.forEach(function (row, rowIndex) {
+            row.forEach(function (isDark, columnIndex) {
+                if (!isDark) {
+                    return;
+                }
+
+                ctx.fillRect(
+                    offsetX + (columnIndex + quietZone) * moduleSize,
+                    offsetY + (rowIndex + quietZone) * moduleSize,
+                    moduleSize,
+                    moduleSize
+                );
+            });
+        });
+
+        ctx.restore();
+    }
+
+    async function renderProgressExportCanvas() {
+        await waitForFontsReady();
+
+        const canvas = document.createElement("canvas");
+        const width = 1600;
+        const height = 1760;
+        const margin = 60;
+        const columnGap = 24;
+        const missionCardWidth = (width - margin * 2 - columnGap) / 2;
+        const missionCardHeight = 320;
+        const ctx = canvas.getContext("2d");
+        const generatedAt = formatExportTimestamp(new Date());
+        const strongestMission = getStrongestMission();
+        const nextMission = getNextMissionForExport();
+        const latest = getLatestProgressSummary();
+
+        if (!ctx) {
+            throw new Error("Canvas export is not available in this browser.");
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const background = ctx.createLinearGradient(0, 0, width, height);
+        background.addColorStop(0, "#071E2B");
+        background.addColorStop(0.55, "#0B4A60");
+        background.addColorStop(1, "#0E7490");
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(244, 185, 66, 0.18)";
+        ctx.beginPath();
+        ctx.arc(width - 170, 180, 180, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(34, 199, 240, 0.14)";
+        ctx.beginPath();
+        ctx.arc(160, height - 180, 220, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        fillRoundedRect(ctx, margin, margin, width - margin * 2, 250, 40, "rgba(255, 248, 232, 0.96)");
+        strokeRoundedRect(ctx, margin, margin, width - margin * 2, 250, 40, "rgba(255, 255, 255, 0.3)", 1);
+
+        const headerGradient = ctx.createLinearGradient(margin, margin, width - margin, margin + 250);
+        headerGradient.addColorStop(0, exportTheme.mango);
+        headerGradient.addColorStop(1, exportTheme.orange);
+        fillRoundedRect(ctx, margin + 28, margin + 26, 130, 130, 34, headerGradient);
+
+        ctx.save();
+        ctx.fillStyle = exportTheme.navy;
+        ctx.textAlign = "center";
+        ctx.font = '800 52px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText("HH", margin + 93, margin + 106);
+        ctx.textAlign = "left";
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '800 58px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText("Health Hero Progress Report", margin + 188, margin + 82);
+        ctx.font = '700 30px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText("Healthy Habits Adventure", margin + 188, margin + 126);
+        ctx.fillStyle = exportTheme.inkSoft;
+        ctx.font = '400 22px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.fillText("Generated " + generatedAt, margin + 188, margin + 170);
+        ctx.fillText(brand.companyName, margin + 188, margin + 204);
+        ctx.fillText(brand.companyWebsite + "  |  " + brand.gameWebsiteLabel, margin + 188, margin + 234);
+        ctx.restore();
+
+        const statY = margin + 280;
+        const statWidth = (width - margin * 2 - columnGap * 3) / 4;
+
+        drawStatCard(ctx, margin, statY, statWidth, 150, "Total score", String(getCommittedScore()), exportTheme.orange);
+        drawStatCard(ctx, margin + statWidth + columnGap, statY, statWidth, 150, "Badges", state.badges.length + " / " + content.missions.length, exportTheme.leaf);
+        drawStatCard(ctx, margin + (statWidth + columnGap) * 2, statY, statWidth, 150, "Unlocked missions", state.unlockedMissionIds.length + " / " + content.missions.length, exportTheme.sky);
+        drawStatCard(
+            ctx,
+            margin + (statWidth + columnGap) * 3,
+            statY,
+            statWidth,
+            150,
+            "Strongest mission",
+            strongestMission ? strongestMission.title : "No mission score yet",
+            exportTheme.teal
+        );
+
+        const snapshotY = statY + 180;
+        fillRoundedRect(ctx, margin, snapshotY, width - margin * 2, 230, 32, "rgba(255, 255, 255, 0.94)");
+        strokeRoundedRect(ctx, margin, snapshotY, width - margin * 2, 230, 32, "rgba(255, 255, 255, 0.28)", 1);
+
+        ctx.save();
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '800 34px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText("Progress Snapshot", margin + 26, snapshotY + 50);
+        drawDetailBlock(ctx, "Checkpoint", getCheckpointSummary(), margin + 26, snapshotY + 92, 470);
+        drawDetailBlock(ctx, "Next mission", nextMission.title + " - " + nextMission.tagline, margin + 540, snapshotY + 92, 470);
+        drawDetailBlock(
+            ctx,
+            "Share link",
+            "Scan the QR code below or visit " + brand.gameWebsiteLabel,
+            margin + 1040,
+            snapshotY + 92,
+            420
+        );
+        ctx.restore();
+
+        const missionGridY = snapshotY + 260;
+
+        content.missions.forEach(function (mission, index) {
+            const column = index % 2;
+            const row = Math.floor(index / 2);
+            const cardX = margin + column * (missionCardWidth + columnGap);
+            const cardY = missionGridY + row * (missionCardHeight + columnGap);
+
+            drawMissionExportCard(ctx, mission, cardX, cardY, missionCardWidth, missionCardHeight);
+        });
+
+        const bottomY = missionGridY + missionCardHeight * 2 + columnGap;
+        const latestWidth = 970;
+        const qrWidth = width - margin * 2 - latestWidth - columnGap;
+
+        fillRoundedRect(ctx, margin, bottomY, latestWidth, 360, 32, "rgba(255, 255, 255, 0.95)");
+        strokeRoundedRect(ctx, margin, bottomY, latestWidth, 360, 32, "rgba(255, 255, 255, 0.28)", 1);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(13, 42, 56, 0.56)";
+        ctx.font = '700 18px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.fillText(latest.eyebrow.toUpperCase(), margin + 26, bottomY + 42);
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '800 40px "Baloo 2", "Trebuchet MS", sans-serif';
+        drawWrappedText(ctx, latest.title, margin + 26, bottomY + 88, latestWidth - 52, 42, 2);
+        ctx.fillStyle = exportTheme.inkSoft;
+        ctx.font = '400 22px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        const summaryBottom = drawWrappedText(ctx, latest.summary, margin + 26, bottomY + 158, latestWidth - 52, 30, 4);
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '700 22px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        latest.details.forEach(function (line, index) {
+            ctx.fillText("• " + line, margin + 30, summaryBottom + 34 + index * 34);
+        });
+        ctx.restore();
+
+        const qrX = margin + latestWidth + columnGap;
+        fillRoundedRect(ctx, qrX, bottomY, qrWidth, 360, 32, "rgba(255, 248, 232, 0.98)");
+        strokeRoundedRect(ctx, qrX, bottomY, qrWidth, 360, 32, "rgba(255, 255, 255, 0.28)", 1);
+
+        ctx.save();
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '800 34px "Baloo 2", "Trebuchet MS", sans-serif';
+        ctx.fillText("Scan To Play", qrX + 26, bottomY + 48);
+        ctx.fillStyle = exportTheme.inkSoft;
+        ctx.font = '400 20px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.fillText("Open the live game site from this report.", qrX + 26, bottomY + 82);
+        drawQrCode(ctx, brand.gameWebsite, qrX + 94, bottomY + 108, 250);
+        ctx.fillStyle = exportTheme.navy;
+        ctx.font = '700 20px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.textAlign = "center";
+        ctx.fillText(brand.gameWebsiteLabel, qrX + qrWidth / 2, bottomY + 334);
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 248, 232, 0.82)";
+        ctx.font = '400 20px "Atkinson Hyperlegible", "Verdana", sans-serif';
+        ctx.textAlign = "center";
+        ctx.fillText(
+            brand.companyName + "  •  " + brand.companyWebsite + "  •  " + brand.gameWebsiteLabel,
+            width / 2,
+            height - 30
+        );
+        ctx.restore();
+
+        runtime.lastExportCanvas = canvas;
+        runtime.lastExportMeta = {
+            width: width,
+            height: height,
+            fileName: getExportFileName(),
+            qrUrl: brand.gameWebsite,
+            generatedAt: generatedAt
+        };
+        window.__healthHeroLastExportCanvas = canvas;
+        window.__healthHeroLastExportMeta = runtime.lastExportMeta;
+
+        return canvas;
+    }
+
+    async function downloadProgressPng(options) {
+        const settings = options || {};
+        const shouldDownload = settings.download !== false;
+        const canvas = await renderProgressExportCanvas();
+
+        if (!shouldDownload) {
+            return Object.assign({}, runtime.lastExportMeta);
+        }
+
+        const triggerDownload = function (href) {
+            const link = document.createElement("a");
+
+            link.href = href;
+            link.download = runtime.lastExportMeta.fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        };
+
+        if (typeof canvas.toBlob === "function") {
+            const blob = await new Promise(function (resolve) {
+                canvas.toBlob(resolve, "image/png");
+            });
+
+            if (blob) {
+                const objectUrl = URL.createObjectURL(blob);
+
+                triggerDownload(objectUrl);
+                window.setTimeout(function () {
+                    URL.revokeObjectURL(objectUrl);
+                }, 1500);
+                showToast("Progress PNG downloaded.");
+
+                return Object.assign({}, runtime.lastExportMeta);
+            }
+        }
+
+        triggerDownload(canvas.toDataURL("image/png"));
+        showToast("Progress PNG downloaded.");
+
+        return Object.assign({}, runtime.lastExportMeta);
     }
 
     function renderTopbar() {
@@ -2768,6 +3671,9 @@
             updateUrl("start");
             renderAll();
             saveProgress();
+        },
+        exportProgressPng: function (options) {
+            return downloadProgressPng(options);
         },
         handleShortcut: function (view) {
             if (view === "play") {

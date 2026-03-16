@@ -1,5 +1,11 @@
 (function () {
-    const brandText = "Cruze Intelligent Systems(U) Ltd at cruzeintelligentsystems.com";
+    const brand = {
+        companyName: "Cruze Intelligent Systems(U) Ltd",
+        companyWebsite: "cruzeintelligentsystems.com",
+        gameWebsite: "https://games.cruze-tech.com",
+        gameWebsiteLabel: "games.cruze-tech.com"
+    };
+    const brandText = brand.companyName + " at " + brand.companyWebsite + " and " + brand.gameWebsiteLabel;
 
     const tipsByTopic = {
         hygiene: [
@@ -760,6 +766,7 @@
     ];
 
     window.HEALTH_HERO_CONTENT = {
+        brand: brand,
         brandText: brandText,
         missions: missions,
         tipsByTopic: tipsByTopic,
